@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Section Manager</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            position: sticky;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        .header button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .header button:hover {
+            background-color: #45a049;
+        }
+
+        .sections {
+            display: flex;
+            gap: 20px;
+            width: max-content;
+            min-width: 100%;
+            overflow-x: auto;
+            padding-bottom: 20px;
+        }
+
+        .section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: fit-content;
+            width: 300px;
+            width: 450px;
+            flex: 0 0 auto;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .section-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .section-title-input {
+            font-size: 1.2em;
+            font-weight: bold;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 4px 8px;
+            width: 200px;
+        }
+
+        .items {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .item {
+            position: relative;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .item-content {
+            margin-bottom: 10px;
+        }
+
+        .item img {
+            max-width: 100%;
+            height: auto;
+            margin-top: 10px;
+        }
+
+        .item-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .item-image-container {
+            position: relative;
+            max-width: 200px;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Modified textarea styles */
+        .item-input {
+            width: 100%;
+            min-height: 60px;
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border: none;
+            border-radius: 4px;
+            resize: none; /* Disable manual resize */
+            overflow: hidden; /* Hide scrollbar */
+            line-height: 1.5; /* Consistent line height */
+            font-size: 20px;
+            font-family: "Lalezar";
+            direction: rtl;
+        }
+
+        .timestamp {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .paste-hint {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        .add-item, .remove-item {
+            border: 1px solid;
+            background: none;
+            cursor: pointer;
+        }
+        
+        input#sectionName {
+            padding: 5px;
+        }
+
+        .rtl {
+            direction: rtl;
+            text-align: right;
+        }
+        
+        .ltr {
+            direction: ltr;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <input type="text" id="sectionName" placeholder="Section name">
+        <button onclick="addSection()">Add Section</button>
+        <button onclick="exportToJson()">Export JSON</button>
+        <input type="file" id="importFile" accept=".json" style="display: none">
+        <button onclick="document.getElementById('importFile').click()">Import JSON</button>
+    </div>
+    <div class="sections" id="sectionsContainer"></div>
+
+    <script>
+        let sections = JSON.parse(localStorage.getItem('sections')) || [];
+
+        // Add language detection function
+        function isRTL(text) {
+            // Regular expression to detect RTL scripts (Persian, Arabic, Hebrew)
+            const rtlChars = /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
+            return rtlChars.test(text);
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('sections', JSON.stringify(sections));
+        }
+
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+            
+            // Check text direction
+            const text = textarea.value;
+            if (isRTL(text)) {
+                textarea.classList.add('rtl');
+                textarea.classList.remove('ltr');
+            } else {
+                textarea.classList.add('ltr');
+                textarea.classList.remove('rtl');
+            }
+        }
+
+        function renderSections() {
+            const container = document.getElementById('sectionsContainer');
+            container.innerHTML = '';
+
+            sections.forEach((section, sectionIndex) => {
+                const sectionElement = document.createElement('div');
+                sectionElement.className = 'section';
+                sectionElement.innerHTML = `
+                    <div class="section-header">
+                        <div class="section-title" onclick="startEditingTitle(${sectionIndex}, this)">${section.title}</div>
+                        <div>
+                            <button class="add-item" onclick="addItem(${sectionIndex})">➕</button>
+                            <button class="remove-item" onclick="removeSection(${sectionIndex})">❌</button>
+                        </div>
+                    </div>
+                    <div class="items">
+                        ${section.items.map((item, itemIndex) => `
+                            <div class="item" data-section="${sectionIndex}" data-item="${itemIndex}">
+                                <button class="remove-btn" onclick="removeItem(${sectionIndex}, ${itemIndex})">×</button>
+                                <textarea
+                                    class="item-input ${isRTL(item.text || '') ? 'rtl' : 'ltr'}"
+                                    oninput="autoResize(this)"
+                                    onchange="updateItemText(${sectionIndex}, ${itemIndex}, this.value)"
+                                    placeholder="Text..."
+                                >${item.text || ''}</textarea>
+                                <div class="item-images">
+                                    ${item.images ? item.images.map((image, imageIndex) => `
+                                        <div class="item-image-container">
+                                            <img src="${image}" alt="Item image">
+                                            <button class="remove-btn" onclick="removeImage(${sectionIndex}, ${itemIndex}, ${imageIndex})">×</button>
+                                        </div>
+                                    `).join('') : ''}
+                                </div>
+                                <div class="timestamp">${item.timestamp} <small>- CTRL + V</small></div>
+                                <div class="paste-hint"></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(sectionElement);
+            });
+
+            // Initialize all textareas
+            document.querySelectorAll('.item-input').forEach(textarea => {
+                autoResize(textarea);
+            });
+
+            // Add paste event listeners to all items
+            document.querySelectorAll('.item').forEach(item => {
+                item.addEventListener('paste', handlePaste);
+            });
+        }
+
+        async function handlePaste(e) {
+            const sectionIndex = parseInt(e.currentTarget.dataset.section);
+            const itemIndex = parseInt(e.currentTarget.dataset.item);
+
+            if (e.clipboardData.items) {
+                for (const item of e.clipboardData.items) {
+                    if (item.type.indexOf('image') !== -1) {
+                        e.preventDefault();
+                        const blob = await item.getAsFile();
+                        const image = await blobToBase64(blob);
+                        
+                        if (!sections[sectionIndex].items[itemIndex].images) {
+                            sections[sectionIndex].items[itemIndex].images = [];
+                        }
+                        sections[sectionIndex].items[itemIndex].images.push(image);
+                        saveToLocalStorage();
+                        renderSections();
+                        break;
+                    }
+                }
+            }
+        }
+
+        function startEditingTitle(sectionIndex, titleElement) {
+            const currentTitle = sections[sectionIndex].title;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentTitle;
+            input.className = 'section-title-input';
+            
+            input.onblur = () => finishEditingTitle(sectionIndex, input);
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                }
+            };
+
+            titleElement.parentNode.replaceChild(input, titleElement);
+            input.focus();
+        }
+
+        function finishEditingTitle(sectionIndex, input) {
+            const newTitle = input.value.trim();
+            if (newTitle) {
+                sections[sectionIndex].title = newTitle;
+                saveToLocalStorage();
+            }
+            renderSections();
+        }
+
+        function addSection() {
+            const name = document.getElementById('sectionName').value.trim();
+            if (name) {
+                sections.push({
+                    title: name,
+                    items: []
+                });
+                saveToLocalStorage();
+                renderSections();
+                document.getElementById('sectionName').value = '';
+            }
+        }
+
+        function removeSection(index) {
+            sections.splice(index, 1);
+            saveToLocalStorage();
+            renderSections();
+        }
+
+        function addItem(sectionIndex) {
+            const timestamp = new Date().toLocaleString();
+            sections[sectionIndex].items.push({
+                text: '',
+                images: [],
+                timestamp
+            });
+            saveToLocalStorage();
+            renderSections();
+        }
+
+        function removeItem(sectionIndex, itemIndex) {
+            sections[sectionIndex].items.splice(itemIndex, 1);
+            saveToLocalStorage();
+            renderSections();
+        }
+
+        function updateItemText(sectionIndex, itemIndex, text) {
+            sections[sectionIndex].items[itemIndex].text = text;
+            saveToLocalStorage();
+        }
+
+        async function addImage(sectionIndex, itemIndex) {
+            try {
+                const clipboardItems = await navigator.clipboard.read();
+                let image = null;
+
+                for (const clipboardItem of clipboardItems) {
+                    for (const type of clipboardItem.types) {
+                        if (type.startsWith('image/')) {
+                            const blob = await clipboardItem.getType(type);
+                            image = await blobToBase64(blob);
+                            break;
+                        }
+                    }
+                }
+
+                if (image) {
+                    if (!sections[sectionIndex].items[itemIndex].images) {
+                        sections[sectionIndex].items[itemIndex].images = [];
+                    }
+                    sections[sectionIndex].items[itemIndex].images.push(image);
+                    saveToLocalStorage();
+                    renderSections();
+                }
+            } catch (err) {
+                console.error('Failed to read clipboard:', err);
+                alert('Please copy an image to your clipboard first');
+            }
+        }
+
+        function removeImage(sectionIndex, itemIndex, imageIndex) {
+            sections[sectionIndex].items[itemIndex].images.splice(imageIndex, 1);
+            saveToLocalStorage();
+            renderSections();
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        function exportToJson() {
+            const dataStr = JSON.stringify(sections, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sections.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        document.getElementById('importFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        sections = JSON.parse(e.target.result);
+                        saveToLocalStorage();
+                        renderSections();
+                    } catch (err) {
+                        console.error('Failed to parse JSON:', err);
+                        alert('Invalid JSON file');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Initial render
+        renderSections();
+    </script>
+</body>
+</html>

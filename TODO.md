@@ -1,2 +1,3 @@
 - horizontal images scroll
 - change order by drag/drop
+- reverse sort items, newer item earlier

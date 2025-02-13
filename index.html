@@ -455,8 +455,9 @@
             const blob = new Blob([dataStr], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
+            const fileName = `section_manager_${new Date().toISOString()}.json`;
             a.href = url;
-            a.download = 'sections.json';
+            a.download = fileName;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

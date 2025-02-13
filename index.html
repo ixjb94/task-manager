@@ -135,7 +135,7 @@
 
         .item-input {
             width: 100%;
-            min-height: 60px;
+            /* min-height: 60px; */
             margin-bottom: 10px;
             padding: 8px;
             border: 1px solid #ddd;
@@ -216,7 +216,8 @@
         }
 
         function autoResize(textarea) {
-            textarea.style.height = 'auto';
+            // textarea.style.height = 'auto';
+            textarea.style.height = '0px';
             textarea.style.height = textarea.scrollHeight + 'px';
             
             // Check text direction
@@ -371,7 +372,7 @@
             
             const CONFIRM = confirm("Are you sure?");
             if (!CONFIRM) return false
-            
+
             sections[sectionIndex].items.splice(itemIndex, 1);
             saveToLocalStorage();
             renderSections();

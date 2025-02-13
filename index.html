@@ -204,9 +204,8 @@
     <script>
         let sections = JSON.parse(localStorage.getItem('sections')) || [];
 
-        // Add language detection function
         function isRTL(text) {
-            // Regular expression to detect RTL scripts (Persian, Arabic, Hebrew)
+            // Persian, Hebrew, Arabic
             const rtlChars = /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
             return rtlChars.test(text);
         }

@@ -347,6 +347,10 @@
         }
 
         function removeSection(index) {
+            
+            const CONFIRM = confirm("Are you sure?");
+            if (!CONFIRM) return false
+
             sections.splice(index, 1);
             saveToLocalStorage();
             renderSections();
@@ -364,6 +368,10 @@
         }
 
         function removeItem(sectionIndex, itemIndex) {
+            
+            const CONFIRM = confirm("Are you sure?");
+            if (!CONFIRM) return false
+            
             sections[sectionIndex].items.splice(itemIndex, 1);
             saveToLocalStorage();
             renderSections();

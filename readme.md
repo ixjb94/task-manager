@@ -8,3 +8,13 @@
 
 ### Images
 ![Images 1](https://raw.githubusercontent.com/ixjb94/section-manager/master/img1.png "Image 1")
+
+### Note
+- you may need to adjust the font-family / size
+
+```css
+.item-input {
+    font-family: ...;
+    font-size: 20px;
+}
+```

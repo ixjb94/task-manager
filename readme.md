@@ -3,6 +3,8 @@
 - Save to localStorage
 - Export / Import
 - Auto adjust RTL/LTR languages
+- Modal Images
+- Resize Sections
 
 ### [Live Demo](https://ixjb94.github.io/section-manager/)
 

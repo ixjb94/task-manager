@@ -18,3 +18,10 @@
     font-size: 20px;
 }
 ```
+
+- you can also change the section width as well
+```csss
+.section {
+    width: 450px;
+}
+```

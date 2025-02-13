@@ -10,4 +10,4 @@
 ### [Live Demo](https://ixjb94.github.io/section-manager/)
 
 ### Images
-![Images 1](https://raw.githubusercontent.com/ixjb94/section-manager/master/img2.png "Image 2")
+![Image](https://raw.githubusercontent.com/ixjb94/section-manager/master/img3.png "Image")

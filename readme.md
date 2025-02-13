@@ -22,6 +22,6 @@
 - you can also change the section width as well
 ```csss
 .section {
-    width: 450px;
+    width: 630px;
 }
 ```

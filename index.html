@@ -189,6 +189,25 @@
             direction: ltr;
             text-align: left;
         }
+
+        /* ###### Image Scroll */
+        .item-images {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+        .item-image-container {
+            flex: 0 0 auto;
+            max-width: 200px;
+            max-width: 150px;
+        }
+        .item-image-container img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
     </style>
 </head>
 <body>
@@ -412,6 +431,10 @@
         }
 
         function removeImage(sectionIndex, itemIndex, imageIndex) {
+            
+            const CONFIRM = confirm("Are you sure?");
+            if (!CONFIRM) return false
+            
             sections[sectionIndex].items[itemIndex].images.splice(imageIndex, 1);
             saveToLocalStorage();
             renderSections();

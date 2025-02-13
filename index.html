@@ -229,9 +229,69 @@
         .resize-handle.active {
             background-color: rgba(0, 0, 0, 0.2);
         }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90vh;
+        }
+
+        .modal-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 10px;
+        }
+
+        /* Make item images clickable */
+        .item-image-container img {
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .item-image-container img:hover {
+            opacity: 0.9;
+        }
     </style>
 </head>
 <body>
+
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <img id="modalImage" src="" alt="Modal image">
+        </div>
+    </div>
+
     <div class="header">
         <input type="text" id="sectionName" placeholder="Section name">
         <button onclick="addSection()">Add Section</button>
@@ -382,7 +442,7 @@
                                 <div class="item-images">
                                     ${item.images ? item.images.map((image, imageIndex) => `
                                         <div class="item-image-container">
-                                            <img src="${image}" alt="Item image">
+                                            <img src="${image}" alt="Item image" onclick="openModal('${image}')">
                                             <button class="remove-btn" onclick="removeImage(${sectionIndex}, ${itemIndex}, ${imageIndex})">×</button>
                                         </div>
                                     `).join('') : ''}
@@ -590,6 +650,40 @@
             }
         });
 
+
+        // Add modal functions
+        function openModal(imageSrc) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            modalImage.src = imageSrc;
+            modal.classList.add('active');
+
+            // Add escape key listener
+            document.addEventListener('keydown', handleEscapeKey);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('imageModal');
+            modal.classList.remove('active');
+            
+            // Remove escape key listener
+            document.removeEventListener('keydown', handleEscapeKey);
+        }
+
+        function handleEscapeKey(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        }
+
+        // Add click outside to close
+        document.getElementById('imageModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        
         // Initial render
         renderSections();
     </script>

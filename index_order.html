@@ -319,7 +319,6 @@
             background: #555; 
         }
     </style>
-    <style id="fonts"></style>
 </head>
 <body>
 
@@ -734,17 +733,11 @@
             localStorage.setItem('fontFamily', fontFamily);
             localStorage.setItem('fontSize', fontSize);
             
-            document.getElementById("fonts").textContent = `
-            .item-input {
-                font-family: ${fontFamily};
-                font-size: ${fontSize}px;
-            }
-            `
             // Update all textareas
-            // document.querySelectorAll('.item-input').forEach(textarea => {
-            //     textarea.style.fontFamily = fontFamily;
-            //     textarea.style.fontSize = `${fontSize}px`;
-            // });
+            document.querySelectorAll('.item-input').forEach(textarea => {
+                textarea.style.fontFamily = fontFamily;
+                textarea.style.fontSize = `${fontSize}px`;
+            });
         }
 
         // Load saved font settings on startup

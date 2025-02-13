@@ -102,7 +102,7 @@
         .item img {
             max-width: 100%;
             height: auto;
-            margin-top: 10px;
+            /* margin-top: 10px; */
         }
 
         .item-images {
@@ -136,7 +136,7 @@
         .item-input {
             width: 100%;
             /* min-height: 60px; */
-            margin-bottom: 10px;
+            /* margin-bottom: 10px; */
             padding: 8px;
             border: 1px solid #ddd;
             border: none;
@@ -152,7 +152,7 @@
         .timestamp {
             font-size: 0.8em;
             color: #666;
-            margin-top: 5px;
+            /* margin-top: 5px; */
         }
 
         .paste-hint {
@@ -434,7 +434,7 @@
             
             const CONFIRM = confirm("Are you sure?");
             if (!CONFIRM) return false
-            
+
             sections[sectionIndex].items[itemIndex].images.splice(imageIndex, 1);
             saveToLocalStorage();
             renderSections();

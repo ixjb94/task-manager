@@ -1,1 +1,2 @@
 - horizontal images scroll
+- change order by drag/drop

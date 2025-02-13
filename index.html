@@ -15,6 +15,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             padding: 20px;
             background-color: #f5f5f5;
+            overflow-x: hidden;
         }
 
         .header {
@@ -42,10 +43,10 @@
         .sections {
             display: flex;
             gap: 20px;
-            width: max-content;
-            min-width: 100%;
             overflow-x: auto;
             padding-bottom: 20px;
+            width: calc(100vw - 40px);
+            scroll-behavior: smooth;
         }
 
         .section {
@@ -54,10 +55,10 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             height: fit-content;
-            width: 300px;
-            width: 450px;
-            width: 630px;
             flex: 0 0 auto;
+            position: relative;
+            min-width: 300px;
+            width: 450px;
         }
 
         .section-header {
@@ -208,6 +209,26 @@
             width: 100%;
             height: auto;
         }
+
+        /* Resize */
+        .resize-handle {
+            position: absolute;
+            right: -5px;
+            top: 0;
+            width: 10px;
+            height: 100%;
+            cursor: col-resize;
+            background-color: transparent;
+            transition: background-color 0.2s;
+        }
+
+        .resize-handle:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .resize-handle.active {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -223,6 +244,86 @@
 
     <script>
         let sections = JSON.parse(localStorage.getItem('sections')) || [];
+        let activeResizeHandle = null;
+        let startX;
+        let startWidth;
+        let scrollInterval;
+        let sectionsContainer;
+
+        function initializeResizeHandles() {
+            sectionsContainer = document.getElementById('sectionsContainer');
+            document.querySelectorAll('.resize-handle').forEach(handle => {
+                handle.addEventListener('mousedown', startResize);
+            });
+
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', stopResize);
+        }
+
+        function startResize(e) {
+            activeResizeHandle = e.target;
+            const section = activeResizeHandle.parentElement;
+            startX = e.clientX;
+            startWidth = section.offsetWidth;
+            activeResizeHandle.classList.add('active');
+            
+            // Clear any existing scroll interval
+            if (scrollInterval) {
+                clearInterval(scrollInterval);
+            }
+        }
+
+        function handleResize(e) {
+            if (!activeResizeHandle) return;
+            
+            const section = activeResizeHandle.parentElement;
+            const sectionIndex = Array.from(section.parentElement.children)
+                                    .indexOf(section);
+            
+            // Calculate new width
+            const width = Math.max(300, startWidth + (e.clientX - startX));
+            
+            // Update section width
+            section.style.width = `${width}px`;
+            sections[sectionIndex].width = width;
+            saveToLocalStorage();
+
+            // Handle auto-scrolling
+            const containerRect = sectionsContainer.getBoundingClientRect();
+            const scrollSpeed = 15;
+            const scrollTriggerZone = 100;
+
+            // Clear existing scroll interval
+            if (scrollInterval) {
+                clearInterval(scrollInterval);
+            }
+
+            // Check if mouse is near the right edge
+            if (e.clientX > containerRect.right - scrollTriggerZone) {
+                scrollInterval = setInterval(() => {
+                    sectionsContainer.scrollLeft += scrollSpeed;
+                }, 16); // ~60fps
+            }
+            // Check if mouse is near the left edge
+            else if (e.clientX < containerRect.left + scrollTriggerZone) {
+                scrollInterval = setInterval(() => {
+                    sectionsContainer.scrollLeft -= scrollSpeed;
+                }, 16);
+            }
+        }
+
+        function stopResize() {
+            if (activeResizeHandle) {
+                activeResizeHandle.classList.remove('active');
+                activeResizeHandle = null;
+                
+                // Clear scroll interval
+                if (scrollInterval) {
+                    clearInterval(scrollInterval);
+                    scrollInterval = null;
+                }
+            }
+        }
 
         function isRTL(text) {
             // Persian, Hebrew, Arabic
@@ -257,6 +358,9 @@
             sections.forEach((section, sectionIndex) => {
                 const sectionElement = document.createElement('div');
                 sectionElement.className = 'section';
+                if (section.width) {
+                    sectionElement.style.width = `${section.width}px`;
+                }
                 sectionElement.innerHTML = `
                     <div class="section-header">
                         <div class="section-title" onclick="startEditingTitle(${sectionIndex}, this)">${section.title}</div>
@@ -288,19 +392,22 @@
                             </div>
                         `).join('')}
                     </div>
+                    <div class="resize-handle"></div>
                 `;
                 container.appendChild(sectionElement);
             });
 
-            // Initialize all textareas
+            // Initialize all textareas and other event listeners
             document.querySelectorAll('.item-input').forEach(textarea => {
                 autoResize(textarea);
             });
 
-            // Add paste event listeners to all items
             document.querySelectorAll('.item').forEach(item => {
                 item.addEventListener('paste', handlePaste);
             });
+
+            // Initialize resize handles
+            initializeResizeHandles();
         }
 
         async function handlePaste(e) {
@@ -358,7 +465,8 @@
             if (name) {
                 sections.push({
                     title: name,
-                    items: []
+                    items: [],
+                    width: 450 // Default width
                 });
                 saveToLocalStorage();
                 renderSections();

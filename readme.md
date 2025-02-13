@@ -1,7 +1,8 @@
 ### Section Manager
-- Can Attach images (Paste from Clipboard)
+- Can Attach images as much as you want (Paste from Clipboard)
 - Save to localStorage
 - Export / Import
+- Auto adjust RTL/LTR languages
 
 ### [Live Demo](https://ixjb94.github.io/section-manager/)
 

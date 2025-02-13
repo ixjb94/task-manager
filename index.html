@@ -162,9 +162,17 @@
         }
         
         .add-item, .remove-item {
-            border: 1px solid;
-            background: none;
+            padding: 2px 8px;
+            border: none;
+            border-radius: 3px;
             cursor: pointer;
+            color: white;
+        }
+        .add-item {
+            background: #007bff;
+        }
+        .remove-item {
+            background-color: #de0037;
         }
         
         input#sectionName {
@@ -232,8 +240,8 @@
                     <div class="section-header">
                         <div class="section-title" onclick="startEditingTitle(${sectionIndex}, this)">${section.title}</div>
                         <div>
-                            <button class="add-item" onclick="addItem(${sectionIndex})">➕</button>
-                            <button class="remove-item" onclick="removeSection(${sectionIndex})">❌</button>
+                            <button class="add-item" onclick="addItem(${sectionIndex})">+</button>
+                            <button class="remove-item" onclick="removeSection(${sectionIndex})">x</button>
                         </div>
                     </div>
                     <div class="items">

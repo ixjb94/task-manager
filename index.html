@@ -281,6 +281,27 @@
         .item-image-container img:hover {
             opacity: 0.9;
         }
+
+        /* Add these new styles */
+        .font-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .font-controls input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .font-controls input[type="number"] {
+            width: 70px;
+        }
+
+        .font-controls input[type="text"] {
+            width: 150px;
+        }
     </style>
 </head>
 <body>
@@ -298,6 +319,12 @@
         <button onclick="exportToJson()">Export JSON</button>
         <input type="file" id="importFile" accept=".json" style="display: none">
         <button onclick="document.getElementById('importFile').click()">Import JSON</button>
+        
+        <!-- Add font controls -->
+        <div class="font-controls">
+            <input type="text" id="fontFamily" placeholder="Font family" value="Lalezar" onchange="updateFont()">
+            <input type="number" id="fontSize" placeholder="Size" value="20" min="8" max="72" onchange="updateFont()">
+        </div>
     </div>
     
     <div class="sections" id="sectionsContainer"></div>
@@ -650,7 +677,6 @@
             }
         });
 
-
         // Add modal functions
         function openModal(imageSrc) {
             const modal = document.getElementById('imageModal');
@@ -682,9 +708,44 @@
                 closeModal();
             }
         });
-
         
-        // Initial render
+        function updateFont() {
+            const fontFamily = document.getElementById('fontFamily').value;
+            const fontSize = document.getElementById('fontSize').value;
+            
+            // Save to localStorage
+            localStorage.setItem('fontFamily', fontFamily);
+            localStorage.setItem('fontSize', fontSize);
+            
+            // Update all textareas
+            document.querySelectorAll('.item-input').forEach(textarea => {
+                textarea.style.fontFamily = fontFamily;
+                textarea.style.fontSize = `${fontSize}px`;
+            });
+        }
+
+        // Load saved font settings on startup
+        function loadFontSettings() {
+            const savedFontFamily = localStorage.getItem('fontFamily');
+            const savedFontSize = localStorage.getItem('fontSize');
+            
+            if (savedFontFamily) {
+                document.getElementById('fontFamily').value = savedFontFamily;
+            }
+            if (savedFontSize) {
+                document.getElementById('fontSize').value = savedFontSize;
+            }
+            
+            updateFont();
+        }
+
+        const originalRenderSections = renderSections;
+        renderSections = function() {
+            originalRenderSections();
+            updateFont();
+        };
+
+        loadFontSettings();
         renderSections();
     </script>
 </body>

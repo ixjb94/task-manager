@@ -9,7 +9,7 @@
 ### [Live Demo](https://ixjb94.github.io/section-manager/)
 
 ### Images
-![Images 1](https://raw.githubusercontent.com/ixjb94/section-manager/master/img1.png "Image 1")
+![Images 1](https://raw.githubusercontent.com/ixjb94/section-manager/master/img2.png "Image 2")
 
 ### Note
 - you may need to adjust the font-family / size
@@ -18,12 +18,5 @@
 .item-input {
     font-family: ...;
     font-size: 20px;
-}
-```
-
-- you can also change the section width as well
-```csss
-.section {
-    width: 630px;
 }
 ```

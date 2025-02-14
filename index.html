@@ -153,14 +153,7 @@
         .timestamp {
             font-size: 0.8em;
             color: #666;
-            /* margin-top: 5px; */
-        }
-
-        .paste-hint {
-            font-size: 0.8em;
-            color: #666;
             margin-top: 5px;
-            font-style: italic;
         }
         
         .add-item, .remove-item {
@@ -283,7 +276,7 @@
             opacity: 0.9;
         }
 
-        /* Add these new styles */
+        /* font controls */
         .font-controls {
             display: flex;
             gap: 10px;
@@ -318,6 +311,61 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #555; 
         }
+
+        /* audio features */
+        .item-audios {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin-top: 10px;
+        }
+
+        .item-audio-container {
+            flex: 0 0 auto;
+            position: relative;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .record-button {
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        .record-button.recording {
+            background-color: #aa0000;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .audio-modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .audio-modal-content audio {
+            width: 100%;
+        }
     </style>
     <style id="fonts"></style>
 </head>
@@ -327,6 +375,14 @@
         <div class="modal-content">
             <button class="modal-close" onclick="closeModal()">×</button>
             <img id="modalImage" src="" alt="Modal image">
+        </div>
+    </div>
+
+    <!-- audio modal -->
+    <div id="audioModal" class="modal">
+        <div class="audio-modal-content">
+            <button class="modal-close" onclick="closeAudioModal()">×</button>
+            <audio id="modalAudio" controls></audio>
         </div>
     </div>
 
@@ -491,8 +547,18 @@
                                         </div>
                                     `).join('') : ''}
                                 </div>
-                                <div class="timestamp">${item.timestamp} <small>- CTRL + V</small></div>
-                                <div class="paste-hint"></div>
+                                <div class="item-audios">
+                                    ${item.audios ? item.audios.map((audio, audioIndex) => `
+                                        <div class="item-audio-container" onclick="openAudioModal('${audio}')">
+                                            <span>🎵 Recording ${audioIndex + 1}</span>
+                                            <button class="remove-btn" onclick="removeAudio(${sectionIndex}, ${itemIndex}, ${audioIndex})">×</button>
+                                        </div>
+                                    `).join('') : ''}
+                                </div>
+                                <button class="record-button" onclick="toggleRecording(${sectionIndex}, ${itemIndex})">
+                                    Record Audio
+                                </button>
+                                <div class="timestamp">${item.timestamp} - <small> (CTRL + V)</small></div>
                             </div>
                         `).join('')}
                     </div>
@@ -501,7 +567,7 @@
                 container.appendChild(sectionElement);
             });
 
-            // Initialize all textareas and other event listeners
+            // Initialize all previous event listeners
             document.querySelectorAll('.item-input').forEach(textarea => {
                 autoResize(textarea);
             });
@@ -510,8 +576,97 @@
                 item.addEventListener('paste', handlePaste);
             });
 
-            // Initialize resize handles
             initializeResizeHandles();
+        }
+
+        // Add audio-related functions
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let activeRecordButton = null;
+
+        async function toggleRecording(sectionIndex, itemIndex) {
+            const button = event.target;
+            
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        audioChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        const audioBase64 = await blobToBase64(audioBlob);
+                        
+                        if (!sections[sectionIndex].items[itemIndex].audios) {
+                            sections[sectionIndex].items[itemIndex].audios = [];
+                        }
+                        sections[sectionIndex].items[itemIndex].audios.push(audioBase64);
+                        saveToLocalStorage();
+                        renderSections();
+
+                        // Clean up
+                        stream.getTracks().forEach(track => track.stop());
+                        activeRecordButton = null;
+                    };
+
+                    mediaRecorder.start();
+                    button.classList.add('recording');
+                    button.textContent = 'Stop Recording';
+                    activeRecordButton = button;
+                } catch (err) {
+                    console.error('Failed to start recording:', err);
+                    alert('Failed to start recording. Please make sure you have granted microphone permissions.');
+                }
+            } else if (mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                button.classList.remove('recording');
+                button.textContent = 'Record Audio';
+            }
+        }
+
+        function removeAudio(sectionIndex, itemIndex, audioIndex) {
+            event.stopPropagation(); // Prevent modal from opening
+            
+            const CONFIRM = confirm("Are you sure you want to delete this audio recording?");
+            if (!CONFIRM) return false;
+
+            sections[sectionIndex].items[itemIndex].audios.splice(audioIndex, 1);
+            saveToLocalStorage();
+            renderSections();
+        }
+
+        function openAudioModal(audioSrc) {
+            const modal = document.getElementById('audioModal');
+            const modalAudio = document.getElementById('modalAudio');
+            modalAudio.src = audioSrc;
+            modal.classList.add('active');
+            document.addEventListener('keydown', handleEscapeKey);
+        }
+
+        function closeAudioModal() {
+            const modal = document.getElementById('audioModal');
+            const modalAudio = document.getElementById('modalAudio');
+            modalAudio.pause();
+            modalAudio.currentTime = 0;
+            modal.classList.remove('active');
+            document.removeEventListener('keydown', handleEscapeKey);
+        }
+
+        // Modify addItem to include audios array
+        function addItem(sectionIndex) {
+            const timestamp = new Date().toLocaleString("en-GB");
+            sections[sectionIndex].items.push({
+                text: '',
+                images: [],
+                audios: [],
+                timestamp
+            });
+            saveToLocalStorage();
+            renderSections();
         }
 
         async function handlePaste(e) {
@@ -720,10 +875,22 @@
         }
 
         // Add click outside to close
-        document.getElementById('imageModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
+        // document.getElementById('imageModal').addEventListener('click', function(e) {
+        //     if (e.target === this) {
+        //         closeModal();
+        //     }
+        // });
+
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    if (this.id === 'audioModal') {
+                        closeAudioModal();
+                    } else {
+                        closeModal();
+                    }
+                }
+            });
         });
         
         function updateFont() {

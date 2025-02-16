@@ -494,34 +494,52 @@
             // Update the position of the dragged clone
             updateDragPosition(e);
             
-            // Only update placeholder position every few pixels to reduce jitter
-            // Use target section and closest item for more stable positioning
+            // Find target section
             const targetSection = findTargetSection(e.clientX, e.clientY);
+            if (!targetSection) return;
             
-            if (targetSection) {
-                const itemsContainer = targetSection.querySelector('.items');
-                const targetItem = findClosestItem(e.clientY, targetSection);
-                
-                if (targetItem) {
-                    const rect = targetItem.getBoundingClientRect();
-                    const middleY = rect.top + rect.height / 2;
-                    
-                    if (e.clientY < middleY) {
-                        if (dropPlaceholder.nextSibling !== targetItem) {
-                            itemsContainer.insertBefore(dropPlaceholder, targetItem);
-                        }
-                    } else {
-                        if (dropPlaceholder.nextSibling !== targetItem.nextSibling) {
-                            itemsContainer.insertBefore(dropPlaceholder, targetItem.nextSibling);
-                        }
-                    }
-                } else if (itemsContainer.children.length === 0 || 
-                        e.clientY < itemsContainer.firstChild.getBoundingClientRect().top) {
-                    // If no items or mouse is above first item
-                    itemsContainer.insertBefore(dropPlaceholder, itemsContainer.firstChild);
-                } else {
-                    // If mouse is below last item
+            const itemsContainer = targetSection.querySelector('.items');
+            
+            // Get all visible items in this section
+            const items = Array.from(targetSection.querySelectorAll('.item')).filter(
+                item => item !== draggedItem && item.style.display !== 'none'
+            );
+            
+            // If there are no items, just append to the container
+            if (items.length === 0) {
+                if (dropPlaceholder.parentNode !== itemsContainer) {
                     itemsContainer.appendChild(dropPlaceholder);
+                }
+                return;
+            }
+            
+            // Find the closest item based on mouse position
+            let closestItem = null;
+            let closestDistance = Infinity;
+            let insertBefore = true;
+            
+            items.forEach(item => {
+                const rect = item.getBoundingClientRect();
+                const itemMiddleY = rect.top + rect.height / 2;
+                const distance = Math.abs(e.clientY - itemMiddleY);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestItem = item;
+                    insertBefore = e.clientY < itemMiddleY;
+                }
+            });
+            
+            // Only move the placeholder if we need to
+            if (closestItem) {
+                if (insertBefore) {
+                    if (dropPlaceholder.nextSibling !== closestItem) {
+                        itemsContainer.insertBefore(dropPlaceholder, closestItem);
+                    }
+                } else {
+                    if (dropPlaceholder.nextSibling !== closestItem.nextSibling) {
+                        itemsContainer.insertBefore(dropPlaceholder, closestItem.nextSibling);
+                    }
                 }
             }
         }

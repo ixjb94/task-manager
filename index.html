@@ -911,10 +911,23 @@
             document.removeEventListener('keydown', handleEscapeKey);
         }
 
-        // Modify addItem to include audios array
+        // regular order
+        // function addItem(sectionIndex) {
+        //     const timestamp = new Date().toLocaleString("en-GB");
+        //     sections[sectionIndex].items.push({
+        //         text: '',
+        //         images: [],
+        //         audios: [],
+        //         timestamp
+        //     });
+        //     saveToLocalStorage();
+        //     renderSections();
+        // }
+        
+        // reverse order
         function addItem(sectionIndex) {
             const timestamp = new Date().toLocaleString("en-GB");
-            sections[sectionIndex].items.push({
+            sections[sectionIndex].items.unshift({
                 text: '',
                 images: [],
                 audios: [],
@@ -998,16 +1011,6 @@
             renderSections();
         }
 
-        function addItem(sectionIndex) {
-            const timestamp = new Date().toLocaleString("en-GB");
-            sections[sectionIndex].items.push({
-                text: '',
-                images: [],
-                timestamp
-            });
-            saveToLocalStorage();
-            renderSections();
-        }
 
         function removeItem(sectionIndex, itemIndex) {
             

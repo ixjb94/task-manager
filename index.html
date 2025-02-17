@@ -369,6 +369,86 @@
         .audio-modal-content audio {
             width: 100%;
         }
+
+        /* Files */
+        .item-files {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin-top: 10px;
+        }
+
+        .item-file-container {
+            flex: 0 0 auto;
+            position: relative;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .file-modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 90%;
+            width: 90%;
+            max-height: 90vh;
+            overflow: auto;
+        }
+
+        .file-modal-content pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .file-icon {
+            font-size: 1.2em;
+            margin-right: 5px;
+        }
+
+        .attach-image-button {
+            background-color: #00a832;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-top: 5px;
+            margin-right: 5px;
+        }
+
+        /* Add styles for the attach file button */
+        .attach-file-button {
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-top: 5px;
+            margin-right: 5px;
+        }
+
+        .attach-file-button:hover {
+            background-color: #357abd;
+        }
+
+        /* Add this to your button container styles */
+        .item-buttons {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        }
     </style>
     <style id="fonts"></style>
 </head>
@@ -386,6 +466,14 @@
         <div class="audio-modal-content">
             <button class="modal-close" onclick="closeAudioModal()">×</button>
             <audio id="modalAudio" controls></audio>
+        </div>
+    </div>
+
+    <!-- files modal -->
+    <div id="fileModal" class="modal">
+        <div class="file-modal-content">
+            <button class="modal-close" onclick="closeFileModal()">×</button>
+            <pre id="fileContent"></pre>
         </div>
     </div>
 
@@ -794,6 +882,7 @@
                                     onchange="updateItemText(${sectionIndex}, ${itemIndex}, this.value)"
                                     placeholder="Text..."
                                 >${item.text || ''}</textarea>
+                                
                                 <div class="item-images">
                                     ${item.images ? item.images.map((image, imageIndex) => `
                                         <div class="item-image-container">
@@ -802,6 +891,7 @@
                                         </div>
                                     `).join('') : ''}
                                 </div>
+                                
                                 <div class="item-audios">
                                     ${item.audios ? item.audios.map((audio, audioIndex) => `
                                         <div class="item-audio-container" onclick="openAudioModal('${audio}')">
@@ -810,9 +900,32 @@
                                         </div>
                                     `).join('') : ''}
                                 </div>
-                                <button class="record-button" onclick="toggleRecording(${sectionIndex}, ${itemIndex})">
-                                    Record Audio
-                                </button>
+
+                                <div class="item-files">
+                                    ${item.files ? item.files.map((file, fileIndex) => `
+                                        <div class="item-file-container" 
+                                            data-section="${sectionIndex}" 
+                                            data-item="${itemIndex}"
+                                            data-file="${fileIndex}">
+                                            <span class="file-icon">📄</span>
+                                            <span>${file.name}</span>
+                                            <button class="remove-btn" onclick="removeFile(${sectionIndex}, ${itemIndex}, ${fileIndex})">×</button>
+                                        </div>
+                                    `).join('') : ''}
+                                </div>
+
+                                <div class="item-buttons">
+                                    <button class="attach-file-button" onclick="handleFileAttachment(${sectionIndex}, ${itemIndex})">
+                                        📎 File
+                                    </button>
+                                    <button class="attach-image-button" onclick="handleImageAttachment(${sectionIndex}, ${itemIndex})">
+                                        📷 Image
+                                    </button>
+                                    <button class="record-button" onclick="toggleRecording(${sectionIndex}, ${itemIndex})">
+                                        Record Audio
+                                    </button>
+                                </div>
+
                                 <div class="timestamp">${item.timestamp} - <small> (CTRL + V)</small></div>
                             </div>
                         `).join('')}
@@ -829,6 +942,19 @@
 
             document.querySelectorAll('.item').forEach(item => {
                 item.addEventListener('paste', handlePaste);
+            });
+
+            // Add click handlers for file containers
+            document.querySelectorAll('.item-file-container').forEach(container => {
+                container.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('remove-btn')) {
+                        const sectionIndex = parseInt(container.dataset.section);
+                        const itemIndex = parseInt(container.dataset.item);
+                        const fileIndex = parseInt(container.dataset.file);
+                        const file = sections[sectionIndex].items[itemIndex].files[fileIndex];
+                        openFileModal(file.content, file.name);
+                    }
+                });
             });
 
             initializeResizeHandles();
@@ -918,6 +1044,7 @@
         //         text: '',
         //         images: [],
         //         audios: [],
+        //         files: [],
         //         timestamp
         //     });
         //     saveToLocalStorage();
@@ -931,10 +1058,67 @@
                 text: '',
                 images: [],
                 audios: [],
+                files: [],
                 timestamp
             });
             saveToLocalStorage();
             renderSections();
+        }
+
+        function handleImageAttachment(sectionIndex, itemIndex) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*'; // Accept only images
+
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    try {
+                        const imageBase64 = await blobToBase64(file);
+                        if (!sections[sectionIndex].items[itemIndex].images) {
+                            sections[sectionIndex].items[itemIndex].images = [];
+                        }
+                        sections[sectionIndex].items[itemIndex].images.push(imageBase64);
+                        saveToLocalStorage();
+                        renderSections();
+                    } catch (err) {
+                        console.error('Error reading image:', err);
+                        alert('Error uploading image');
+                    }
+                }
+            };
+
+            input.click();
+        }
+
+        function handleFileAttachment(sectionIndex, itemIndex) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.txt,.html,.js,.css,.json,.md,.csv';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    try {
+                        const content = await readFileContent(file);
+                        if (!sections[sectionIndex].items[itemIndex].files) {
+                            sections[sectionIndex].items[itemIndex].files = [];
+                        }
+                        sections[sectionIndex].items[itemIndex].files.push({
+                            name: file.name,
+                            content: content,
+                            type: file.type || 'text/plain'
+                        });
+                        saveToLocalStorage();
+                        renderSections();
+                    } catch (err) {
+                        console.error('Error reading file:', err);
+                        alert('Error reading file');
+                    }
+                }
+            };
+            
+            input.click();
         }
 
         async function handlePaste(e) {
@@ -945,7 +1129,7 @@
                 for (const item of e.clipboardData.items) {
                     if (item.type.indexOf('image') !== -1) {
                         e.preventDefault();
-                        const blob = await item.getAsFile();
+                        const blob = item.getAsFile();
                         const image = await blobToBase64(blob);
                         
                         if (!sections[sectionIndex].items[itemIndex].images) {
@@ -954,7 +1138,25 @@
                         sections[sectionIndex].items[itemIndex].images.push(image);
                         saveToLocalStorage();
                         renderSections();
-                        break;
+                    } else if (item.type === 'text/plain') {
+                        const text = await new Promise(resolve => {
+                            item.getAsString(resolve);
+                        });
+                        
+                        // Only handle as file if it looks like code or structured content
+                        if (text.includes('{') || text.includes('<') || text.includes('function')) {
+                            e.preventDefault();
+                            if (!sections[sectionIndex].items[itemIndex].files) {
+                                sections[sectionIndex].items[itemIndex].files = [];
+                            }
+                            sections[sectionIndex].items[itemIndex].files.push({
+                                name: `pasted_content_${new Date().getTime()}.txt`,
+                                content: text,
+                                type: 'text/plain'
+                            });
+                            saveToLocalStorage();
+                            renderSections();
+                        }
                     }
                 }
             }
@@ -1110,6 +1312,57 @@
             }
         });
 
+        // Add these new functions to your script
+        function attachFile(sectionIndex, itemIndex) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.txt,.html,.js,.css,.json,.md';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    try {
+                        const content = await readFileContent(file);
+                        if (!sections[sectionIndex].items[itemIndex].files) {
+                            sections[sectionIndex].items[itemIndex].files = [];
+                        }
+                        sections[sectionIndex].items[itemIndex].files.push({
+                            name: file.name,
+                            content: content,
+                            type: file.type || 'text/plain'
+                        });
+                        saveToLocalStorage();
+                        renderSections();
+                    } catch (err) {
+                        console.error('Error reading file:', err);
+                        alert('Error reading file');
+                    }
+                }
+            };
+            
+            input.click();
+        }
+
+        function readFileContent(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(e);
+                reader.readAsText(file);
+            });
+        }
+
+        function removeFile(sectionIndex, itemIndex, fileIndex) {
+            event.stopPropagation();
+            
+            const CONFIRM = confirm("Are you sure you want to delete this file?");
+            if (!CONFIRM) return false;
+
+            sections[sectionIndex].items[itemIndex].files.splice(fileIndex, 1);
+            saveToLocalStorage();
+            renderSections();
+        }
+
         // Add modal functions
         function openModal(imageSrc) {
             const modal = document.getElementById('imageModal');
@@ -1119,6 +1372,39 @@
 
             // Add escape key listener
             document.addEventListener('keydown', handleEscapeKey);
+        }
+
+        function addFileModalStyles() {
+            const styleElement = document.createElement('style');
+            styleElement.textContent = `
+                .file-modal-content pre {
+                    white-space: pre-wrap;
+                    word-wrap: break-word;
+                    background: #f5f5f5;
+                    padding: 15px;
+                    border-radius: 4px;
+                    overflow-x: auto;
+                    max-height: 80vh;
+                    font-family: monospace;
+                    font-size: 14px;
+                    line-height: 1.4;
+                }
+            `;
+            document.head.appendChild(styleElement);
+        }
+
+        function openFileModal(content, fileName) {
+            const modal = document.getElementById('fileModal');
+            const fileContent = document.getElementById('fileContent');
+            fileContent.textContent = content; // textContent will safely handle newlines
+            modal.classList.add('active');
+            document.addEventListener('keydown', handleEscapeKey);
+        }
+
+        function closeFileModal() {
+            const modal = document.getElementById('fileModal');
+            modal.classList.remove('active');
+            document.removeEventListener('keydown', handleEscapeKey);
         }
 
         function closeModal() {
@@ -1147,6 +1433,8 @@
                 if (e.target === this) {
                     if (this.id === 'audioModal') {
                         closeAudioModal();
+                    } else if (this.id === 'fileModal') {
+                        closeFileModal();
                     } else {
                         closeModal();
                     }
@@ -1189,6 +1477,9 @@
             
             updateFont();
         }
+
+        // Call this when the page loads
+        document.addEventListener('DOMContentLoaded', addFileModalStyles);
 
         const originalRenderSections = renderSections;
         renderSections = function() {

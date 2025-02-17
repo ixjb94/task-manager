@@ -7,7 +7,8 @@
 - Resize Sections
 - Font Family / Size
 - Record Audio
-- Drag|Drop Re-order
+- Drag / Drop Re-order
+- File Attachement (.txt, .html, .md, etc)
 
 ### [Live Demo](https://ixjb94.github.io/section-manager/)
 

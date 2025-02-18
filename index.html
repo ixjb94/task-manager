@@ -156,7 +156,8 @@
         .timestamp {
             font-size: 0.8em;
             color: #666;
-            margin-top: 5px;
+            margin-top: 10px;
+            margin-bottom: -5px;
         }
         
         .add-item, .remove-item {
@@ -338,16 +339,15 @@
         }
 
         .record-button {
-            background-color: #ff4444;
-            color: white;
+            background-color: white;
             border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
+            color: white;
             cursor: pointer;
-            margin-top: 5px;
+            line-height: 0;
         }
 
         .record-button.recording {
+            padding: 5px 10px;
             background-color: #aa0000;
             animation: pulse 1s infinite;
         }
@@ -417,31 +417,25 @@
         }
 
         .attach-image-button {
-            background-color: #00a832;
-            color: white;
+            background-color: white;
             border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
+            color: white;
             cursor: pointer;
-            margin-top: 5px;
-            margin-right: 5px;
+            line-height: 0;
         }
 
         /* Add styles for the attach file button */
         .attach-file-button {
-            background-color: #4a90e2;
-            color: white;
+            background-color: white;
             border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
+            color: white;
             cursor: pointer;
-            margin-top: 5px;
-            margin-right: 5px;
+            line-height: 0;
         }
 
-        .attach-file-button:hover {
+        /* .attach-file-button:hover {
             background-color: #357abd;
-        }
+        } */
 
         /* Add this to your button container styles */
         .item-buttons {
@@ -449,11 +443,90 @@
             gap: 5px;
             margin-top: 5px;
         }
+
+        /* Video */
+        .item-videos {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin-top: 10px;
+        }
+
+        .item-video-container {
+            flex: 0 0 auto;
+            position: relative;
+            max-width: 300px;
+        }
+
+        .item-video {
+            width: 100%;
+            border-radius: 4px;
+        }
+
+        .record-video-button {
+            background-color: white;
+            border: none;
+            color: white;
+            cursor: pointer;
+            line-height: 0;
+        }
+
+        .record-video-button.recording {
+            padding: 5px 10px;
+            background-color: #6a0080;
+            animation: pulse 1s infinite;
+        }
+
+        .item-buttons svg {
+            width: 20px;
+            height: 20px;
+        }
+        .item-buttons > button:not(:last-child) {
+            border-right: 1px solid black;
+            padding-right: 5px;
+        }
+
+        /* video modal */
+        #videoModal .modal-content {
+            max-width: 90%;
+            max-height: 90vh;
+            background: black;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        #modalVideo {
+            max-width: 100%;
+            max-height: 80vh;
+        }
+
+        .item-video-container {
+            position: relative;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+
+        .item-video-container video {
+            max-width: 320px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
     </style>
     <style id="fonts"></style>
 </head>
 <body>
 
+    <!-- video modal -->
+    <div id="videoModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeVideoModal()">×</button>
+            <video id="modalVideo" controls></video>
+        </div>
+    </div>
+
+    <!-- image modal -->
     <div id="imageModal" class="modal">
         <div class="modal-content">
             <button class="modal-close" onclick="closeModal()">×</button>
@@ -480,9 +553,13 @@
     <div class="header">
         <input type="text" id="sectionName" placeholder="Section name">
         <button onclick="addSection()">Add Section</button>
-        <button onclick="exportToJson()">Export JSON</button>
-        <input type="file" id="importFile" accept=".json" style="display: none">
-        <button onclick="document.getElementById('importFile').click()">Import JSON</button>
+        <!-- <button onclick="exportToJson()">Export JSON</button> -->
+        <!-- <input type="file" id="importFile" accept=".json" style="display: none"> -->
+        <!-- <button onclick="document.getElementById('importFile').click()">Import JSON</button> -->
+         
+        <button onclick="exportData()">Export</button>
+        <input type="file" id="importFile" accept=".zip" style="display: none">
+        <button onclick="document.getElementById('importFile').click()">Import</button>
         
         <!-- Add font controls -->
         <div class="font-controls">
@@ -492,6 +569,8 @@
     </div>
     
     <div class="sections" id="sectionsContainer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <script>
         let sections = JSON.parse(localStorage.getItem('sections')) || [];
@@ -506,6 +585,177 @@
         let startItemIndex = null;
         let dropPlaceholder = null;
         let mouseOffsetX, mouseOffsetY;
+
+        // Initialize IndexedDB
+        let db;
+        const dbName = "SectionManagerDB";
+        const dbVersion = 1;
+
+        // ### Zip
+        async function exportToZip() {
+            try {
+                const zip = new JSZip();
+                
+                // Create a data directory for media files
+                const mediaDir = zip.folder("media");
+                
+                // Create a modified version of sections without the large media data
+                const exportSections = JSON.parse(JSON.stringify(sections));
+                
+                // Process each section's items
+                for (let sectionIndex = 0; sectionIndex < exportSections.length; sectionIndex++) {
+                    const section = exportSections[sectionIndex];
+                    
+                    for (let itemIndex = 0; itemIndex < section.items.length; itemIndex++) {
+                        const item = section.items[itemIndex];
+                        
+                        // Handle images
+                        if (item.images && item.images.length > 0) {
+                            item.images = await Promise.all(item.images.map(async (imageData, imageIndex) => {
+                                const imageId = `image_${sectionIndex}_${itemIndex}_${imageIndex}`;
+                                const imageBlob = await base64ToBlob(imageData);
+                                mediaDir.file(`${imageId}.png`, imageBlob);
+                                return imageId; // Replace base64 with reference
+                            }));
+                        }
+                        
+                        // Handle audio recordings
+                        if (item.audios && item.audios.length > 0) {
+                            item.audios = await Promise.all(item.audios.map(async (audioData, audioIndex) => {
+                                const audioId = `audio_${sectionIndex}_${itemIndex}_${audioIndex}`;
+                                const audioBlob = await base64ToBlob(audioData);
+                                mediaDir.file(`${audioId}.wav`, audioBlob);
+                                return audioId; // Replace base64 with reference
+                            }));
+                        }
+                        
+                        // Handle videos from IndexedDB
+                        if (item.videos && item.videos.length > 0) {
+                            await Promise.all(item.videos.map(async (videoId, videoIndex) => {
+                                const video = await getVideoFromIndexedDB(parseInt(videoId));
+                                if (video && video.data) {
+                                    const newVideoId = `video_${sectionIndex}_${itemIndex}_${videoIndex}`;
+                                    mediaDir.file(`${newVideoId}.webm`, video.data);
+                                    item.videos[videoIndex] = newVideoId; // Replace ID with new reference
+                                }
+                            }));
+                        }
+                    }
+                }
+                
+                // Add the JSON data
+                zip.file("data.json", JSON.stringify(exportSections, null, 2));
+                
+                // Generate and download the zip file
+                const blob = await zip.generateAsync({type: "blob"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `section_manager_${new Date().toISOString()}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+            } catch (err) {
+                console.error('Error creating zip:', err);
+                alert('Error exporting data');
+            }
+        }
+
+        // Helper function to get video from IndexedDB
+        async function getVideoFromIndexedDB(videoId) {
+            const transaction = db.transaction(["videos"], "readonly");
+            const store = transaction.objectStore("videos");
+            return new Promise((resolve, reject) => {
+                const request = store.get(videoId);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // Helper function to clear videos from IndexedDB
+        async function clearVideosFromIndexedDB() {
+            const transaction = db.transaction(["videos"], "readwrite");
+            const store = transaction.objectStore("videos");
+            return new Promise((resolve, reject) => {
+                const request = store.clear();
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function importFromZip(file) {
+            try {
+                const zip = await JSZip.loadAsync(file);
+                
+                // Read the JSON data first
+                const dataFile = await zip.file("data.json").async("text");
+                const importedSections = JSON.parse(dataFile);
+                
+                // Clear existing videos from IndexedDB
+                await clearVideosFromIndexedDB();
+                
+                // Process each section's items
+                for (let sectionIndex = 0; sectionIndex < importedSections.length; sectionIndex++) {
+                    const section = importedSections[sectionIndex];
+                    
+                    for (let itemIndex = 0; itemIndex < section.items.length; itemIndex++) {
+                        const item = section.items[itemIndex];
+                        
+                        // Handle images
+                        if (item.images && item.images.length > 0) {
+                            item.images = await Promise.all(item.images.map(async (imageId) => {
+                                const imageFile = zip.file(`media/${imageId}.png`);
+                                if (imageFile) {
+                                    const blob = await imageFile.async("blob");
+                                    return await blobToBase64(blob);
+                                }
+                                return null;
+                            }));
+                            item.images = item.images.filter(img => img !== null);
+                        }
+                        
+                        // Handle audio recordings
+                        if (item.audios && item.audios.length > 0) {
+                            item.audios = await Promise.all(item.audios.map(async (audioId) => {
+                                const audioFile = zip.file(`media/${audioId}.wav`);
+                                if (audioFile) {
+                                    const blob = await audioFile.async("blob");
+                                    return await blobToBase64(blob);
+                                }
+                                return null;
+                            }));
+                            item.audios = item.audios.filter(audio => audio !== null);
+                        }
+                        
+                        // Handle videos
+                        if (item.videos && item.videos.length > 0) {
+                            item.videos = await Promise.all(item.videos.map(async (videoId) => {
+                                const videoFile = zip.file(`media/${videoId}.webm`);
+                                if (videoFile) {
+                                    const blob = await videoFile.async("blob");
+                                    const newVideoId = await saveVideoToIndexedDB(blob);
+                                    return newVideoId.toString();
+                                }
+                                return null;
+                            }));
+                            item.videos = item.videos.filter(video => video !== null);
+                        }
+                    }
+                }
+                
+                // Update sections and render
+                sections = importedSections;
+                saveToLocalStorage();
+                renderSections();
+                
+            } catch (err) {
+                console.error('Error importing zip:', err);
+                alert('Error importing data');
+            }
+        }
+        // ### Zip
 
         // ### Drag Drop Re-order
         function initializeDragAndDrop() {
@@ -877,6 +1127,7 @@
                             <div class="item" data-section="${sectionIndex}" data-item="${itemIndex}">
                                 <button class="remove-btn" onclick="removeItem(${sectionIndex}, ${itemIndex})">×</button>
                                 <textarea
+                                    name="NAME_${sectionIndex}_${itemIndex}"
                                     class="item-input ${isRTL(item.text || '') ? 'rtl' : 'ltr'}"
                                     oninput="autoResize(this)"
                                     onchange="updateItemText(${sectionIndex}, ${itemIndex}, this.value)"
@@ -914,15 +1165,32 @@
                                     `).join('') : ''}
                                 </div>
 
+                                <div class="item-videos">
+                                    ${item.videos ? item.videos.map((videoId, videoIndex) => `
+                                    <div class="item-video-container">
+                                        <video 
+                                            class="item-video" 
+                                            data-video-id="${videoId}"
+                                            onclick="event.stopPropagation(); openVideoModal(this.src)"
+                                        ></video>
+                                        <button class="remove-btn" onclick="event.stopPropagation(); removeVideo(${sectionIndex}, ${itemIndex}, ${videoIndex})">×</button>
+                                    </div>
+                                `).join('') : ''}
+                                </div>
+                                
+
                                 <div class="item-buttons">
                                     <button class="attach-file-button" onclick="handleFileAttachment(${sectionIndex}, ${itemIndex})">
-                                        📎 File
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M43.246 466.142c-58.43-60.289-57.341-157.511 1.386-217.581L254.392 34c44.316-45.332 116.351-45.336 160.671 0 43.89 44.894 43.943 117.329 0 162.276L232.214 383.128c-29.855 30.537-78.633 30.111-107.982-.998-28.275-29.97-27.368-77.473 1.452-106.953l143.743-146.835c6.182-6.314 16.312-6.422 22.626-.241l22.861 22.379c6.315 6.182 6.422 16.312.241 22.626L171.427 319.927c-4.932 5.045-5.236 13.428-.648 18.292 4.372 4.634 11.245 4.711 15.688.165l182.849-186.851c19.613-20.062 19.613-52.725-.011-72.798-19.189-19.627-49.957-19.637-69.154 0L90.39 293.295c-34.763 35.56-35.299 93.12-1.191 128.313 34.01 35.093 88.985 35.137 123.058.286l172.06-175.999c6.177-6.319 16.307-6.433 22.626-.256l22.877 22.364c6.319 6.177 6.434 16.307.256 22.626l-172.06 175.998c-59.576 60.938-155.943 60.216-214.77-.485z"/></svg>
                                     </button>
                                     <button class="attach-image-button" onclick="handleImageAttachment(${sectionIndex}, ${itemIndex})">
-                                        📷 Image
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M369.9 97.9L286 14C277 5 264.8-.1 252.1-.1H48C21.5 0 0 21.5 0 48v416c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V131.9c0-12.7-5.1-25-14.1-34zM332.1 128H256V51.9l76.1 76.1zM48 464V48h160v104c0 13.3 10.7 24 24 24h104v288H48zm32-48h224V288l-23.5-23.5c-4.7-4.7-12.3-4.7-17 0L176 352l-39.5-39.5c-4.7-4.7-12.3-4.7-17 0L80 352v64zm48-240c-26.5 0-48 21.5-48 48s21.5 48 48 48 48-21.5 48-48-21.5-48-48-48z"/></svg>
                                     </button>
                                     <button class="record-button" onclick="toggleRecording(${sectionIndex}, ${itemIndex})">
-                                        Record Audio
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 352 512"><path d="M176 352c53.02 0 96-42.98 96-96V96c0-53.02-42.98-96-96-96S80 42.98 80 96v160c0 53.02 42.98 96 96 96zm160-160h-16c-8.84 0-16 7.16-16 16v48c0 74.8-64.49 134.82-140.79 127.38C96.71 376.89 48 317.11 48 250.3V208c0-8.84-7.16-16-16-16H16c-8.84 0-16 7.16-16 16v40.16c0 89.64 63.97 169.55 152 181.69V464H96c-8.84 0-16 7.16-16 16v16c0 8.84 7.16 16 16 16h160c8.84 0 16-7.16 16-16v-16c0-8.84-7.16-16-16-16h-56v-33.77C285.71 418.47 352 344.9 352 256v-48c0-8.84-7.16-16-16-16z"/></svg>
+                                    </button>
+                                    <button class="record-video-button" onclick="startVideoCapture(${sectionIndex}, ${itemIndex})">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>
                                     </button>
                                 </div>
 
@@ -935,6 +1203,21 @@
                 container.appendChild(sectionElement);
             });
 
+            // After rendering, load videos
+            document.querySelectorAll('.item-video').forEach(async (video) => {
+                if (!db) return;                
+
+                try {
+                    const videoId = video.dataset.videoId;
+                    if (videoId) {
+                        const blobUrl = await loadVideoFromIndexedDB(videoId);
+                        video.src = blobUrl;
+                    }
+                } catch (err) {
+                    console.error('Error loading video:', err);
+                }
+            });
+            
             // Initialize all previous event listeners
             document.querySelectorAll('.item-input').forEach(textarea => {
                 autoResize(textarea);
@@ -964,9 +1247,12 @@
         let mediaRecorder = null;
         let audioChunks = [];
         let activeRecordButton = null;
+        let recordedChunks = [];
 
         async function toggleRecording(sectionIndex, itemIndex) {
-            const button = event.target;
+            // Get the button element, accounting for event bubbling
+            const button = event.target.closest('.record-button');
+            if (!button) return;
             
             if (!mediaRecorder || mediaRecorder.state === 'inactive') {
                 try {
@@ -996,7 +1282,8 @@
 
                     mediaRecorder.start();
                     button.classList.add('recording');
-                    button.textContent = 'Stop Recording';
+                    // Replace the SVG content with "Recording..." text
+                    button.innerHTML = 'Recording...';
                     activeRecordButton = button;
                 } catch (err) {
                     console.error('Failed to start recording:', err);
@@ -1005,7 +1292,8 @@
             } else if (mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
                 button.classList.remove('recording');
-                button.textContent = 'Record Audio';
+                // Restore the original SVG content
+                button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 352 512"><path d="M176 352c53.02 0 96-42.98 96-96V96c0-53.02-42.98-96-96-96S80 42.98 80 96v160c0 53.02 42.98 96 96 96zm160-160h-16c-8.84 0-16 7.16-16 16v48c0 74.8-64.49 134.82-140.79 127.38C96.71 376.89 48 317.11 48 250.3V208c-0-8.84-7.16-16-16-16H16c-8.84 0-16 7.16-16 16v40.16c0 89.64 63.97 169.55 152 181.69V464H96c-8.84 0-16 7.16-16 16v16c0 8.84 7.16 16 16 16h160c8.84 0 16-7.16 16-16v-16c0-8.84-7.16-16-16-16h-56v-33.77C285.71 418.47 352 344.9 352 256v-48c0-8.84-7.16-16-16-16z"/></svg>`;
             }
         }
 
@@ -1268,47 +1556,201 @@
             renderSections();
         }
 
+        async function exportWithVideos() {
+            try {
+                // Get all videos from IndexedDB
+                const videoData = {};
+                const transaction = db.transaction(["videos"], "readonly");
+                const store = transaction.objectStore("videos");
+                
+                return new Promise((resolve, reject) => {
+                    const request = store.getAll();
+                    
+                    request.onsuccess = async () => {
+                        const videos = request.result;
+                        
+                        // Convert video blobs to base64
+                        for (const video of videos) {
+                            videoData[video.id] = {
+                                id: video.id,
+                                timestamp: video.timestamp,
+                                data: await blobToBase64(video.data)
+                            };
+                        }
+                        
+                        // Combine sections and video data
+                        const exportData = {
+                            sections: sections,
+                            videos: videoData
+                        };
+                        
+                        // Create and trigger download
+                        const dataStr = JSON.stringify(exportData);
+                        const blob = new Blob([dataStr], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        const fileName = `section_manager_${new Date().toISOString()}.json`;
+                        a.href = url;
+                        a.download = fileName;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        resolve();
+                    };
+                    
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (err) {
+                console.error('Error exporting data:', err);
+                alert('Error exporting data with videos');
+            }
+        }
+
+        function exportData() {
+            const loadingMessage = document.createElement('div');
+            loadingMessage.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 20px;
+                border-radius: 8px;
+                z-index: 9999;
+            `;
+            loadingMessage.textContent = 'Exporting data... This might take a while for large files.';
+            document.body.appendChild(loadingMessage);
+            
+            exportToZip().finally(() => {
+                document.body.removeChild(loadingMessage);
+            });
+        }
+
+        async function importWithVideos(jsonData) {
+            try {
+                const data = JSON.parse(jsonData);
+                
+                // Clear existing videos from IndexedDB
+                const clearTransaction = db.transaction(["videos"], "readwrite");
+                const store = clearTransaction.objectStore("videos");
+                await new Promise((resolve, reject) => {
+                    const request = store.clear();
+                    request.onsuccess = resolve;
+                    request.onerror = reject;
+                });
+                
+                // Import videos to IndexedDB
+                if (data.videos) {
+                    const transaction = db.transaction(["videos"], "readwrite");
+                    const store = transaction.objectStore("videos");
+                    
+                    for (const videoId in data.videos) {
+                        const videoData = data.videos[videoId];
+                        const videoBlob = await base64ToBlob(videoData.data);
+                        
+                        await new Promise((resolve, reject) => {
+                            const request = store.add({
+                                id: videoData.id,
+                                data: videoBlob,
+                                timestamp: videoData.timestamp
+                            });
+                            request.onsuccess = resolve;
+                            request.onerror = reject;
+                        });
+                    }
+                }
+                
+                // Update sections
+                sections = data.sections;
+                saveToLocalStorage();
+                renderSections();
+                
+            } catch (err) {
+                console.error('Error importing data:', err);
+                alert('Error importing data with videos');
+            }
+        }
+
+        
+        // Convert a Blob to a base64 string
         function blobToBase64(blob) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
+                reader.onloadend = () => {
+                    resolve(reader.result);
+                };
                 reader.onerror = reject;
                 reader.readAsDataURL(blob);
             });
         }
 
+        // Convert a base64 string back to a Blob
+        function base64ToBlob(base64) {
+            const parts = base64.split(';base64,');
+            const contentType = parts[0].split(':')[1] || 'application/octet-stream';
+            const raw = window.atob(parts[1]);
+            const rawLength = raw.length;
+            const uInt8Array = new Uint8Array(rawLength);
+            
+            for (let i = 0; i < rawLength; ++i) {
+                uInt8Array[i] = raw.charCodeAt(i);
+            }
+            
+            return new Blob([uInt8Array], { type: contentType });
+        }
+        
         function exportToJson() {
-            const dataStr = JSON.stringify(sections, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            const fileName = `section_manager_${new Date().toISOString()}.json`;
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Show loading message
+            const loadingMessage = document.createElement('div');
+            loadingMessage.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 20px;
+                border-radius: 8px;
+                z-index: 9999;
+            `;
+            loadingMessage.textContent = 'Exporting data... This might take a while for large videos.';
+            document.body.appendChild(loadingMessage);
+            
+            // Start export process
+            setTimeout(async () => {
+                await exportWithVideos();
+                document.body.removeChild(loadingMessage);
+            }, 100);
         }
 
         document.getElementById('importFile').addEventListener('change', function(e) {
+            if (!confirm("Are you sure? This will replace all existing data.")) return false;
             
-            if (!confirm("Are you sure?")) return false;
-
             const file = e.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        sections = JSON.parse(e.target.result);
-                        saveToLocalStorage();
-                        renderSections();
-                    } catch (err) {
-                        console.error('Failed to parse JSON:', err);
-                        alert('Invalid JSON file');
-                    }
-                };
-                reader.readAsText(file);
+                // Show loading message
+                const loadingMessage = document.createElement('div');
+                loadingMessage.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0, 0, 0, 0.8);
+                    color: white;
+                    padding: 20px;
+                    border-radius: 8px;
+                    z-index: 9999;
+                `;
+                loadingMessage.textContent = 'Importing data... This might take a while for large files.';
+                document.body.appendChild(loadingMessage);
+                
+                // Start import process
+                importFromZip(file).finally(() => {
+                    document.body.removeChild(loadingMessage);
+                });
             }
         });
 
@@ -1361,6 +1803,24 @@
             sections[sectionIndex].items[itemIndex].files.splice(fileIndex, 1);
             saveToLocalStorage();
             renderSections();
+        }
+
+        // video modal
+        function openVideoModal(videoUrl) {
+            const modal = document.getElementById('videoModal');
+            const modalVideo = document.getElementById('modalVideo');
+            modalVideo.src = videoUrl;
+            modal.classList.add('active');
+            document.addEventListener('keydown', handleEscapeKey);
+        }
+
+        function closeVideoModal() {
+            const modal = document.getElementById('videoModal');
+            const modalVideo = document.getElementById('modalVideo');
+            modalVideo.pause();
+            modalVideo.currentTime = 0;
+            modal.classList.remove('active');
+            document.removeEventListener('keydown', handleEscapeKey);
         }
 
         // Add modal functions
@@ -1435,6 +1895,8 @@
                         closeAudioModal();
                     } else if (this.id === 'fileModal') {
                         closeFileModal();
+                    } else if (this.id === 'videoModal') {
+                        closeVideoModal();
                     } else {
                         closeModal();
                     }
@@ -1463,6 +1925,192 @@
             // });
         }
 
+        // ### Video
+        let dbReadyPromise;
+
+        async function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open("SectionManagerDB", 1);
+
+                request.onerror = (event) => {
+                    console.error("IndexedDB error:", event.target.error);
+                    reject(event.target.error);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains("videos")) {
+                        db.createObjectStore("videos", { keyPath: "id", autoIncrement: true });
+                    }
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+            });
+        }
+        
+        async function startVideoCapture(sectionIndex, itemIndex) {
+            // Get the button element, accounting for event bubbling
+            const button = event.target.closest('.record-video-button');
+            if (!button) return;
+            
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                try {
+                    // Get screen capture stream
+                    const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+                        video: {
+                            displaySurface: 'browser',
+                            logicalSurface: true,
+                            cursor: 'always'
+                        },
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            sampleRate: 44100
+                        }
+                    });
+
+                    // Get microphone stream
+                    const micStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            sampleRate: 44100
+                        }
+                    });
+
+                    const tracks = [
+                        ...screenStream.getVideoTracks(),
+                        ...micStream.getAudioTracks(),
+                        ...screenStream.getAudioTracks(),
+                    ];
+
+                    const combinedStream = new MediaStream(tracks);
+
+                    tracks.forEach(track => {
+                        track.onended = () => {
+                            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                                mediaRecorder.stop();
+                                button.classList.remove('recording');
+                                button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>`;
+                            }
+                            tracks.forEach(t => t.stop());
+                        };
+                    });
+
+                    mediaRecorder = new MediaRecorder(combinedStream, {
+                        mimeType: 'video/webm;codecs=vp8,opus'
+                    });
+                    recordedChunks = [];
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            recordedChunks.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = async () => {
+                        try {
+                            const blob = new Blob(recordedChunks, { 
+                                type: 'video/webm;codecs=vp8,opus' 
+                            });
+                            const videoId = await saveVideoToIndexedDB(blob);
+                            
+                            if (!sections[sectionIndex].items[itemIndex].videos) {
+                                sections[sectionIndex].items[itemIndex].videos = [];
+                            }
+                            sections[sectionIndex].items[itemIndex].videos.push(videoId.toString());
+                            saveToLocalStorage();
+                            await renderSections();
+
+                            tracks.forEach(track => track.stop());
+                        } catch (error) {
+                            console.error('Error handling recorded video:', error);
+                            alert('Failed to save the recorded video.');
+                        } finally {
+                            button.classList.remove('recording');
+                            button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>`;
+                            activeRecordButton = null;
+                        }
+                    };
+
+                    mediaRecorder.start();
+                    button.classList.add('recording');
+                    button.innerHTML = 'Recording...';
+                    activeRecordButton = button;
+
+                } catch (err) {
+                    console.error('Failed to start recording:', err);
+                    alert('Failed to start screen recording. Please make sure you have granted screen and microphone capture permissions.');
+                    button.classList.remove('recording');
+                    button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>`;
+                }
+            } else if (mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+        }
+
+        async function saveVideoToIndexedDB(blob) {
+            try {
+                const transaction = db.transaction(["videos"], "readwrite");
+                const store = transaction.objectStore("videos");
+                
+                return new Promise((resolve, reject) => {
+                    const request = store.add({ data: blob, timestamp: new Date().getTime() });
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('Error in saveVideoToIndexedDB:', error);
+                throw error;
+            }
+        }
+
+        async function loadVideoFromIndexedDB(videoId) {
+            if (!db) return;
+            
+            try {
+                const transaction = db.transaction(["videos"], "readonly");
+                const store = transaction.objectStore("videos");
+
+                return new Promise((resolve, reject) => {
+                    const request = store.get(parseInt(videoId));
+                    request.onsuccess = () => {
+                        if (request.result) {
+                            const blobUrl = URL.createObjectURL(request.result.data);
+                            resolve(blobUrl);
+                        } else {
+                            reject(new Error('Video not found'));
+                        }
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('Error in loadVideoFromIndexedDB:', error);
+                throw error;
+            }
+        }
+
+        function removeVideo(sectionIndex, itemIndex, videoIndex) {
+            const CONFIRM = confirm("Are you sure you want to delete this video?");
+            if (!CONFIRM) return false;
+
+            const videoId = sections[sectionIndex].items[itemIndex].videos[videoIndex];
+            
+            // Remove from IndexedDB
+            const transaction = db.transaction(["videos"], "readwrite");
+            const store = transaction.objectStore("videos");
+            store.delete(parseInt(videoId));
+
+            // Remove from sections data
+            sections[sectionIndex].items[itemIndex].videos.splice(videoIndex, 1);
+            saveToLocalStorage();
+            renderSections();
+        }
+
+        // ### Video
         // Load saved font settings on startup
         function loadFontSettings() {
             const savedFontFamily = localStorage.getItem('fontFamily');
@@ -1482,15 +2130,47 @@
         document.addEventListener('DOMContentLoaded', addFileModalStyles);
 
         const originalRenderSections = renderSections;
-        renderSections = function() {
+        
+        renderSections = async function() {
+            // Call the original render first
             originalRenderSections();
+            
+            // Add all enhancements
             initializeDragAndDrop();
             updateFont();
+            
+            // Only proceed with video loading if DB is ready
+            if (db) {
+                // Handle video loading from IndexedDB
+                const videoElements = document.querySelectorAll('.item-video');
+                for (const video of videoElements) {
+                    try {
+                        const videoUrl = video.src;
+                        if (videoUrl.startsWith('indexeddb://')) {
+                            const blobUrl = await loadVideoFromIndexedDB(videoUrl);
+                            video.src = blobUrl;
+                        }
+                    } catch (err) {
+                        console.error('Error loading video:', err);
+                    }
+                }
+            }
         };
+
 
         // Initialize styles on page load
         document.addEventListener('DOMContentLoaded', function() {
             addDragAndDropStyles();
+        });
+        
+        // Initialize DB when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                db = await initDB();
+                renderSections();
+            } catch (error) {
+                console.error('Failed to initialize IndexedDB:', error);
+            }
         });
 
         loadFontSettings();

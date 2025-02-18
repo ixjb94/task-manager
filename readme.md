@@ -13,5 +13,11 @@
 
 ### [Live Demo](https://ixjb94.github.io/section-manager/)
 
+### Note
+This code is using `jszip` using cloudflare CDN:    
+```
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+```
+
 ### Images
 ![Image](https://raw.githubusercontent.com/ixjb94/section-manager/master/img9.png "Image")

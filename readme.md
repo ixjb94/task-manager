@@ -14,4 +14,4 @@
 ### [Live Demo](https://ixjb94.github.io/section-manager/)
 
 ### Images
-![Image](https://raw.githubusercontent.com/ixjb94/section-manager/master/img8.png "Image")
+![Image](https://raw.githubusercontent.com/ixjb94/section-manager/master/img9.png "Image")

@@ -570,7 +570,8 @@
     
     <div class="sections" id="sectionsContainer"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> -->
+    <script src="./jszip.min.js"></script>
 
     <script>
         let sections = JSON.parse(localStorage.getItem('sections')) || [];
@@ -1952,10 +1953,12 @@
         }
         
         async function startVideoCapture(sectionIndex, itemIndex) {
-            // Get the button element, accounting for event bubbling
             const button = event.target.closest('.record-video-button');
             if (!button) return;
-            
+
+            const audioContext = new AudioContext();
+            const destination = audioContext.createMediaStreamDestination();
+
             if (!mediaRecorder || mediaRecorder.state === 'inactive') {
                 try {
                     // Get screen capture stream
@@ -1966,8 +1969,8 @@
                             cursor: 'always'
                         },
                         audio: {
-                            echoCancellation: true,
-                            noiseSuppression: true,
+                            echoCancellation: false,
+                            noiseSuppression: false,
                             sampleRate: 44100
                         }
                     });
@@ -1975,47 +1978,37 @@
                     // Get microphone stream
                     const micStream = await navigator.mediaDevices.getUserMedia({
                         audio: {
-                            echoCancellation: true,
-                            noiseSuppression: true,
+                            echoCancellation: false,
+                            noiseSuppression: false,
                             sampleRate: 44100
                         }
                     });
 
-                    const tracks = [
+                    // Mix system and microphone audio
+                    const screenAudioSource = audioContext.createMediaStreamSource(screenStream);
+                    const micAudioSource = audioContext.createMediaStreamSource(micStream);
+                    screenAudioSource.connect(destination);
+                    micAudioSource.connect(destination);
+
+                    // Combine video with mixed audio
+                    const combinedStream = new MediaStream([
                         ...screenStream.getVideoTracks(),
-                        ...micStream.getAudioTracks(),
-                        ...screenStream.getAudioTracks(),
-                    ];
-
-                    const combinedStream = new MediaStream(tracks);
-
-                    tracks.forEach(track => {
-                        track.onended = () => {
-                            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                                mediaRecorder.stop();
-                                button.classList.remove('recording');
-                                button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>`;
-                            }
-                            tracks.forEach(t => t.stop());
-                        };
-                    });
+                        ...destination.stream.getAudioTracks()
+                    ]);
 
                     mediaRecorder = new MediaRecorder(combinedStream, {
                         mimeType: 'video/webm;codecs=vp8,opus'
                     });
+
                     recordedChunks = [];
 
                     mediaRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) {
-                            recordedChunks.push(event.data);
-                        }
+                        if (event.data.size > 0) recordedChunks.push(event.data);
                     };
 
                     mediaRecorder.onstop = async () => {
                         try {
-                            const blob = new Blob(recordedChunks, { 
-                                type: 'video/webm;codecs=vp8,opus' 
-                            });
+                            const blob = new Blob(recordedChunks, { type: 'video/webm;codecs=vp8,opus' });
                             const videoId = await saveVideoToIndexedDB(blob);
                             
                             if (!sections[sectionIndex].items[itemIndex].videos) {
@@ -2024,8 +2017,6 @@
                             sections[sectionIndex].items[itemIndex].videos.push(videoId.toString());
                             saveToLocalStorage();
                             await renderSections();
-
-                            tracks.forEach(track => track.stop());
                         } catch (error) {
                             console.error('Error handling recorded video:', error);
                             alert('Failed to save the recorded video.');
@@ -2051,6 +2042,7 @@
                 mediaRecorder.stop();
             }
         }
+
 
         async function saveVideoToIndexedDB(blob) {
             try {

@@ -128,9 +128,9 @@
             position: absolute;
             top: 2px;
             right: 2px;
-            background-color: #ff4444;
-            color: white;
-            border: none;
+            background: white;
+            color: black;
+            border: 1px solid;
             border-radius: 50%;
             width: 20px;
             height: 20px;
@@ -138,6 +138,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+
+        .remove-btn:hover {
+            border: 1px solid #ff4444;
+            background: #ff4444;
+            color: white;
         }
 
         .item-input {
@@ -169,12 +175,26 @@
             border-radius: 3px;
             cursor: pointer;
             color: white;
+            border: 1px solid;
+            color: black;
         }
+
         .add-item {
-            background: #007bff;
+            background: none;
         }
         .remove-item {
+            background: none;
+        }
+
+        .add-item:hover {
+            background: green;
+            color: white;
+            border: 1px solid green;
+        }
+        .remove-item:hover {
             background-color: #de0037;
+            color: white;
+            border: 1px solid #de0037;
         }
         
         input#sectionName {
@@ -883,9 +903,9 @@
         
         .remove-project {
             padding: 2px 6px;
-            background: #ff4444;
-            color: white;
-            border: none;
+            background: none;
+            color: black;
+            border: 1px solid;
             border-radius: 3px;
             cursor: pointer;
             opacity: 0.8;
@@ -895,6 +915,9 @@
         
         .remove-project:hover {
             opacity: 1;
+            background: #ff4444;
+            color: white;
+            border: 1px solid #ff4444;
         }
         
         .add-project {

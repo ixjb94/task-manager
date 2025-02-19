@@ -586,6 +586,189 @@
         let startItemIndex = null;
         let dropPlaceholder = null;
         let mouseOffsetX, mouseOffsetY;
+        let draggedSection = null;
+        let draggedSectionClone = null;
+        let sectionDropPlaceholder = null;
+        let sectionStartIndex = null;
+        let sectionMouseOffsetX, sectionMouseOffsetY;
+
+        // ### Section Drag and Drop
+        function initializeSectionDragAndDrop() {
+            document.querySelectorAll('.section').forEach(section => {
+                // Create and add drag handle to each section header
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'section-drag-handle';
+                dragHandle.innerHTML = '⋮⋮';
+                section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-header').firstChild);
+                
+                // Set up drag events
+                dragHandle.addEventListener('mousedown', startSectionDrag);
+            });
+        }
+
+        function startSectionDrag(e) {
+            e.preventDefault();
+            
+            // Get the section and its index
+            const section = e.target.closest('.section');
+            sectionStartIndex = Array.from(document.querySelectorAll('.section')).indexOf(section);
+            
+            // Create a clone of the section for dragging
+            draggedSection = section;
+            draggedSectionClone = section.cloneNode(true);
+            draggedSectionClone.classList.add('section-dragging');
+            
+            // Calculate the mouse offset within the dragged section
+            const rect = section.getBoundingClientRect();
+            sectionMouseOffsetX = e.clientX - rect.left;
+            sectionMouseOffsetY = e.clientY - rect.top;
+            
+            // Set initial position of the clone
+            draggedSectionClone.style.width = `${rect.width}px`;
+            draggedSectionClone.style.height = `${rect.height}px`;
+            draggedSectionClone.style.position = 'fixed';
+            draggedSectionClone.style.zIndex = '1000';
+            draggedSectionClone.style.pointerEvents = 'none';
+            draggedSectionClone.style.opacity = '0.8';
+            updateSectionDragPosition(e);
+            
+            // Create a placeholder for the drop location
+            sectionDropPlaceholder = document.createElement('div');
+            sectionDropPlaceholder.className = 'section-drop-placeholder';
+            sectionDropPlaceholder.style.width = `${rect.width}px`;
+            sectionDropPlaceholder.style.height = `${rect.height}px`;
+            
+            // Add elements to the DOM
+            document.body.appendChild(draggedSectionClone);
+            draggedSection.parentNode.insertBefore(sectionDropPlaceholder, draggedSection);
+            draggedSection.style.display = 'none';
+            
+            // Add event listeners for dragging
+            document.addEventListener('mousemove', sectionDragMove);
+            document.addEventListener('mouseup', stopSectionDrag);
+        }
+
+        function updateSectionDragPosition(e) {
+            if (!draggedSectionClone) return;
+            draggedSectionClone.style.left = `${e.clientX - sectionMouseOffsetX}px`;
+            draggedSectionClone.style.top = `${e.clientY - sectionMouseOffsetY}px`;
+            draggedSectionClone.style.transform = 'rotate(2deg)';
+        }
+
+        function sectionDragMove(e) {
+            if (!draggedSectionClone) return;
+            
+            updateSectionDragPosition(e);
+            
+            const sectionsContainer = document.getElementById('sectionsContainer');
+            const sections = Array.from(sectionsContainer.querySelectorAll('.section')).filter(
+                section => section !== draggedSection && section.style.display !== 'none'
+            );
+            
+            if (sections.length === 0) {
+                if (sectionDropPlaceholder.parentNode !== sectionsContainer) {
+                    sectionsContainer.appendChild(sectionDropPlaceholder);
+                }
+                return;
+            }
+            
+            let closestSection = null;
+            let closestDistance = Infinity;
+            let insertBefore = true;
+            
+            sections.forEach(section => {
+                const rect = section.getBoundingClientRect();
+                const sectionMiddleX = rect.left + rect.width / 2;
+                const distance = Math.abs(e.clientX - sectionMiddleX);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestSection = section;
+                    insertBefore = e.clientX < sectionMiddleX;
+                }
+            });
+            
+            if (closestSection) {
+                if (insertBefore) {
+                    if (sectionDropPlaceholder.nextSibling !== closestSection) {
+                        sectionsContainer.insertBefore(sectionDropPlaceholder, closestSection);
+                    }
+                } else {
+                    if (sectionDropPlaceholder.nextSibling !== closestSection.nextSibling) {
+                        sectionsContainer.insertBefore(sectionDropPlaceholder, closestSection.nextSibling);
+                    }
+                }
+            }
+        }
+
+        function stopSectionDrag() {
+            if (!draggedSectionClone) return;
+            
+            const targetIndex = Array.from(document.querySelectorAll('.section, .section-drop-placeholder')).indexOf(sectionDropPlaceholder);
+            
+            // Reorder sections array
+            if (targetIndex !== -1) {
+                const [movedSection] = sections.splice(sectionStartIndex, 1);
+                sections.splice(targetIndex, 0, movedSection);
+                saveToLocalStorage();
+            }
+            
+            // Clean up
+            draggedSectionClone.style.opacity = '0';
+            setTimeout(() => {
+                if (draggedSectionClone.parentNode) {
+                    document.body.removeChild(draggedSectionClone);
+                }
+                if (sectionDropPlaceholder.parentNode) {
+                    sectionDropPlaceholder.parentNode.removeChild(sectionDropPlaceholder);
+                }
+                
+                draggedSection.style.display = '';
+                draggedSection = null;
+                draggedSectionClone = null;
+                sectionDropPlaceholder = null;
+                
+                renderSections();
+            }, 0); // 200
+            
+            document.removeEventListener('mousemove', sectionDragMove);
+            document.removeEventListener('mouseup', stopSectionDrag);
+        }
+
+        function addSectionDragAndDropStyles() {
+            const styleElement = document.createElement('style');
+            styleElement.textContent = `
+                .section-drag-handle {
+                    cursor: move;
+                    padding: 5px;
+                    user-select: none;
+                    color: #aaa;
+                    font-size: 16px;
+                    margin-right: 10px;
+                    opacity: 0;
+                    transition: opacity 0.2s;
+                }
+
+                .section:hover .section-drag-handle {
+                    opacity: 1;
+                }
+
+                .section-dragging {
+                    transition: transform 0.2s ease, opacity 0.2s ease;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                }
+
+                .section-drop-placeholder {
+                    background-color: rgba(0, 123, 255, 0.1);
+                    border: 2px dashed #0088ff;
+                    border-radius: 8px;
+                    margin: 0 10px;
+                    transition: all 0.3s ease;
+                }
+            `;
+            document.head.appendChild(styleElement);
+        }
+        // ### Section Drag and Drop
 
         // Initialize IndexedDB
         let db;
@@ -2129,6 +2312,8 @@
             
             // Add all enhancements
             initializeDragAndDrop();
+            initializeSectionDragAndDrop(); // new section drag-drop
+            
             updateFont();
             
             // Only proceed with video loading if DB is ready
@@ -2153,6 +2338,7 @@
         // Initialize styles on page load
         document.addEventListener('DOMContentLoaded', function() {
             addDragAndDropStyles();
+            addSectionDragAndDropStyles();
         });
         
         // Initialize DB when page loads

@@ -675,6 +675,11 @@
         let sectionDropPlaceholder = null;
         let sectionStartIndex = null;
         let sectionMouseOffsetX, sectionMouseOffsetY;
+        let draggedProject = null;
+        let draggedProjectClone = null;
+        let projectDropPlaceholder = null;
+        let projectStartIndex = null;
+        let projectMouseOffsetX, projectMouseOffsetY;
         let activeProject = localStorage.getItem('activeProject') || 'default';
         let projects = JSON.parse(localStorage.getItem('projects')) || [
             {
@@ -818,49 +823,9 @@
                     switchToProject(tab.dataset.projectId);
                 });
             });
-        }
-
-        function DEP_renderProjects() {
-            const existingNav = document.querySelector('.projects-nav');
-            if (existingNav) {
-                existingNav.remove();
-            }
-
-            const projectsNav = document.createElement('div');
-            projectsNav.className = 'projects-nav';
-            projectsNav.innerHTML = `
-                <div class="projects-list">
-                    ${projects.map(project => `
-                        <div class="project-tab ${project.id === activeProject ? 'active' : ''}" 
-                            data-project-id="${project.id}">
-                            <span class="project-name" 
-                                ondblclick ="startEditingProjectName('${project.id}', this)">${project.name}</span>
-                            ${projects.length > 1 ? 
-                                `<button onclick="event.stopPropagation(); removeProject('${project.id}')" class="remove-project">×</button>` 
-                                : ''}
-                        </div>
-                    `).join('')}
-                </div>
-                <div class="add-project">
-                    <input type="text" id="projectName" placeholder="New project name">
-                    <button onclick="addProject(document.getElementById('projectName').value)">Add Project</button>
-                </div>
-            `;
             
-            // Insert projects nav before the sections container
-            const header = document.querySelector('.header');
-            header.parentNode.insertBefore(projectsNav, header);
-
-            // Add click handlers for project switching
-            const projectTabs = projectsNav.querySelectorAll('.project-tab');
-            projectTabs.forEach(tab => {
-                tab.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('project-name') || e.target.classList.contains('project-name-input')) {
-                        return; // Don't switch projects when editing name
-                    }
-                    switchToProject(tab.dataset.projectId);
-                });
-            });
+            // Add this at the end of the function:
+            initializeProjectDragAndDrop();
         }
 
         // CSS
@@ -964,6 +929,184 @@
                 addProject(e.target.value);
             }
         });
+
+        // Drag Drop
+        function initializeProjectDragAndDrop() {
+            document.querySelectorAll('.project-tab').forEach(project => {
+                // Create and add drag handle to each project tab
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'project-drag-handle';
+                dragHandle.innerHTML = '⋮';
+                // project.insertBefore(dragHandle, project.firstChild);
+                project.insertBefore(dragHandle, project.querySelector(".project-tab .remove-project"));
+
+                // Set up drag events
+                dragHandle.addEventListener('mousedown', startProjectDrag);
+            });
+        }
+
+        function startProjectDrag(e) {
+            e.preventDefault();
+            
+            // Get the project tab and its index
+            const projectTab = e.target.closest('.project-tab');
+            projectStartIndex = Array.from(document.querySelectorAll('.project-tab')).indexOf(projectTab);
+            
+            // Create a clone for dragging
+            draggedProject = projectTab;
+            draggedProjectClone = projectTab.cloneNode(true);
+            draggedProjectClone.classList.add('project-dragging');
+            
+            // Calculate mouse offset
+            const rect = projectTab.getBoundingClientRect();
+            projectMouseOffsetX = e.clientX - rect.left;
+            projectMouseOffsetY = e.clientY - rect.top;
+            
+            // Set initial position of clone
+            draggedProjectClone.style.width = `${rect.width}px`;
+            draggedProjectClone.style.height = `${rect.height}px`;
+            draggedProjectClone.style.position = 'fixed';
+            draggedProjectClone.style.zIndex = '1000';
+            draggedProjectClone.style.pointerEvents = 'none';
+            draggedProjectClone.style.opacity = '0.8';
+            updateProjectDragPosition(e);
+            
+            // Create placeholder
+            projectDropPlaceholder = document.createElement('div');
+            projectDropPlaceholder.className = 'project-drop-placeholder';
+            projectDropPlaceholder.style.width = `${rect.width}px`;
+            projectDropPlaceholder.style.height = `${rect.height}px`;
+            
+            // Add elements to DOM
+            document.body.appendChild(draggedProjectClone);
+            draggedProject.parentNode.insertBefore(projectDropPlaceholder, draggedProject);
+            draggedProject.style.display = 'none';
+            
+            // Add drag event listeners
+            document.addEventListener('mousemove', projectDragMove);
+            document.addEventListener('mouseup', stopProjectDrag);
+        }
+
+        function updateProjectDragPosition(e) {
+            if (!draggedProjectClone) return;
+            draggedProjectClone.style.left = `${e.clientX - projectMouseOffsetX}px`;
+            draggedProjectClone.style.top = `${e.clientY - projectMouseOffsetY}px`;
+            draggedProjectClone.style.transform = 'rotate(1deg)';
+        }
+
+        function projectDragMove(e) {
+            if (!draggedProjectClone) return;
+            
+            updateProjectDragPosition(e);
+            
+            const projectsList = document.querySelector('.projects-list');
+            const projectTabs = Array.from(projectsList.querySelectorAll('.project-tab')).filter(
+                tab => tab !== draggedProject && tab.style.display !== 'none'
+            );
+            
+            if (projectTabs.length === 0) {
+                if (projectDropPlaceholder.parentNode !== projectsList) {
+                    projectsList.appendChild(projectDropPlaceholder);
+                }
+                return;
+            }
+            
+            let closestTab = null;
+            let closestDistance = Infinity;
+            let insertBefore = true;
+            
+            projectTabs.forEach(tab => {
+                const rect = tab.getBoundingClientRect();
+                const tabMiddleX = rect.left + rect.width / 2;
+                const distance = Math.abs(e.clientX - tabMiddleX);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestTab = tab;
+                    insertBefore = e.clientX < tabMiddleX;
+                }
+            });
+            
+            if (closestTab) {
+                if (insertBefore) {
+                    if (projectDropPlaceholder.nextSibling !== closestTab) {
+                        projectsList.insertBefore(projectDropPlaceholder, closestTab);
+                    }
+                } else {
+                    if (projectDropPlaceholder.nextSibling !== closestTab.nextSibling) {
+                        projectsList.insertBefore(projectDropPlaceholder, closestTab.nextSibling);
+                    }
+                }
+            }
+        }
+
+        function stopProjectDrag() {
+            if (!draggedProjectClone) return;
+            
+            const targetIndex = Array.from(document.querySelectorAll('.project-tab, .project-drop-placeholder')).indexOf(projectDropPlaceholder);
+            
+            // Reorder projects array
+            if (targetIndex !== -1 && targetIndex !== projectStartIndex) {
+                const [movedProject] = projects.splice(projectStartIndex, 1);
+                projects.splice(targetIndex, 0, movedProject);
+                saveProjects();
+            }
+            
+            // Clean up
+            draggedProjectClone.style.opacity = '0';
+            setTimeout(() => {
+                if (draggedProjectClone.parentNode) {
+                    document.body.removeChild(draggedProjectClone);
+                }
+                if (projectDropPlaceholder.parentNode) {
+                    projectDropPlaceholder.parentNode.removeChild(projectDropPlaceholder);
+                }
+                
+                draggedProject.style.display = '';
+                draggedProject = null;
+                draggedProjectClone = null;
+                projectDropPlaceholder = null;
+                
+                renderProjects();
+            }, 0);
+            
+            document.removeEventListener('mousemove', projectDragMove);
+            document.removeEventListener('mouseup', stopProjectDrag);
+        }
+
+        function addProjectDragAndDropStyles() {
+            const styleElement = document.createElement('style');
+            styleElement.textContent = `
+                .project-drag-handle {
+                    cursor: move;
+                    padding: 2px 5px;
+                    user-select: none;
+                    color: #aaa;
+                    font-size: 14px;
+                    opacity: 0;
+                    transition: opacity 0.2s;
+                }
+
+                .project-tab:hover .project-drag-handle {
+                    opacity: 1;
+                }
+
+                .project-dragging {
+                    transition: transform 0.2s ease, opacity 0.2s ease;
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+                    background: white;
+                }
+
+                .project-drop-placeholder {
+                    background-color: rgba(0, 123, 255, 0.1);
+                    border: 2px dashed #0088ff;
+                    border-radius: 4px;
+                    margin: 0 5px;
+                    transition: all 0.3s ease;
+                }
+            `;
+            document.head.appendChild(styleElement);
+        }
         // ### Projects
 
         // ### Section Drag and Drop
@@ -2806,6 +2949,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             addDragAndDropStyles();
             addSectionDragAndDropStyles();
+            addProjectDragAndDropStyles();
         });
         
         // Initialize DB when page loads

@@ -24,6 +24,8 @@
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
+            margin-left: -20px;
+            margin-right: -20px;
             position: sticky;
             left: 20px;
             z-index: 1000;
@@ -31,7 +33,7 @@
 
         .header button {
             padding: 8px 16px;
-            background-color: #4CAF50;
+            background-color: #479dfa;
             color: white;
             border: none;
             border-radius: 4px;
@@ -39,7 +41,7 @@
         }
 
         .header button:hover {
-            background-color: #45a049;
+            background-color: #007bff;
         }
 
         .sections {
@@ -540,6 +542,25 @@
             align-items: center;
             justify-content: space-between;
         }
+
+        /* accordion */
+        details {
+            width: 100%;
+            background-color: white;
+        }
+        summary {
+            color: black;
+            background-color: #e0e0e0;
+            padding: 1rem;
+            cursor: pointer;
+        }
+        .settings-content {
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+            position: sticky;
+            padding: 10px;
+        }
     </style>
     <style id="fonts"></style>
 </head>
@@ -578,21 +599,33 @@
     </div>
 
     <div class="header">
-        <input type="text" id="sectionName" placeholder="Section name">
-        <button onclick="addSection()">Add Section</button>
-        <!-- <button onclick="exportToJson()">Export JSON</button> -->
-        <!-- <input type="file" id="importFile" accept=".json" style="display: none"> -->
-        <!-- <button onclick="document.getElementById('importFile').click()">Import JSON</button> -->
-         
-        <button onclick="exportData()">Export</button>
-        <input type="file" id="importFile" accept=".zip" style="display: none">
-        <button onclick="document.getElementById('importFile').click()">Import</button>
-        
-        <!-- Add font controls -->
-        <div class="font-controls">
-            <input type="text" id="fontFamily" placeholder="Font family" value="Lalezar" onchange="updateFont()">
-            <input type="number" id="fontSize" placeholder="Size" value="20" min="8" max="72" onchange="updateFont()">
-        </div>
+        <details name="settings">
+            <summary>Settings</summary>
+
+            <div class="settings-content">
+                <input type="text" id="sectionName" placeholder="Section name">
+                <button onclick="addSection()">Add Section</button>
+                <!-- <button onclick="exportToJson()">Export JSON</button> -->
+                <!-- <input type="file" id="importFile" accept=".json" style="display: none"> -->
+                <!-- <button onclick="document.getElementById('importFile').click()">Import JSON</button> -->
+                
+                <button onclick="exportData()">Export</button>
+                <input type="file" id="importFile" accept=".zip" style="display: none">
+                <button onclick="document.getElementById('importFile').click()">Import</button>
+                
+                <!-- Add font controls -->
+                <div class="font-controls">
+                    <input type="text" id="fontFamily" placeholder="Font family" value="Lalezar" onchange="updateFont()">
+                    <input type="number" id="fontSize" placeholder="Size" value="20" min="8" max="72" onchange="updateFont()">
+                </div>
+
+                <!-- add project -->
+                <div class="add-project">
+                    <input type="text" id="projectName" placeholder="New project name">
+                    <button onclick="addProject(document.getElementById('projectName').value)">Add Project</button>
+                </div>
+            </div>
+        </details>
     </div>
     
     <div class="sections" id="sectionsContainer"></div>
@@ -745,6 +778,45 @@
                         </div>
                     `).join('')}
                 </div>
+            `;
+            
+            // Insert projects nav before the sections container
+            const header = document.querySelector('.header');
+            header.parentNode.insertBefore(projectsNav, header);
+
+            // Add click handlers for project switching
+            const projectTabs = projectsNav.querySelectorAll('.project-tab');
+            projectTabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('project-name') || e.target.classList.contains('project-name-input')) {
+                        return; // Don't switch projects when editing name
+                    }
+                    switchToProject(tab.dataset.projectId);
+                });
+            });
+        }
+
+        function DEP_renderProjects() {
+            const existingNav = document.querySelector('.projects-nav');
+            if (existingNav) {
+                existingNav.remove();
+            }
+
+            const projectsNav = document.createElement('div');
+            projectsNav.className = 'projects-nav';
+            projectsNav.innerHTML = `
+                <div class="projects-list">
+                    ${projects.map(project => `
+                        <div class="project-tab ${project.id === activeProject ? 'active' : ''}" 
+                            data-project-id="${project.id}">
+                            <span class="project-name" 
+                                ondblclick ="startEditingProjectName('${project.id}', this)">${project.name}</span>
+                            ${projects.length > 1 ? 
+                                `<button onclick="event.stopPropagation(); removeProject('${project.id}')" class="remove-project">×</button>` 
+                                : ''}
+                        </div>
+                    `).join('')}
+                </div>
                 <div class="add-project">
                     <input type="text" id="projectName" placeholder="New project name">
                     <button onclick="addProject(document.getElementById('projectName').value)">Add Project</button>
@@ -772,11 +844,14 @@
         projectStyles.textContent = `
         .projects-nav {
             background: #f5f5f5;
+            background: white;
             padding: 10px;
+            padding-bottom: 0px;
             border-bottom: 1px solid #ddd;
             position: relative;
             z-index: 1;
-            margin-bottom: 5px;
+            margin-left: -20px;
+            margin-right: -20px;
         }
         
         .projects-list {
@@ -838,7 +913,7 @@
         
         .add-project button {
             padding: 8px 16px;
-            background: #4CAF50;
+            background: #479dfa;
             color: white;
             border: none;
             border-radius: 4px;
@@ -847,7 +922,7 @@
         }
         
         .add-project button:hover {
-            background: #45a049;
+            background: #007bff;
         }
         `;
         

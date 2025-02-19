@@ -1637,6 +1637,7 @@
         function startEditingTitle(sectionIndex, titleElement) {
             const currentTitle = sections[sectionIndex].title;
             const input = document.createElement('input');
+            input.name = `NAME_${sectionIndex}`;
             input.type = 'text';
             input.value = currentTitle;
             input.className = 'section-title-input';

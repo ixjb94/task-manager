@@ -10,6 +10,7 @@
 - Record Video
 - Drag / Drop Re-order
 - File Attachment (.txt, .html, .md, etc)
+- Project Tabs
 
 ### [Live Demo](https://ixjb94.github.io/section-manager/)
 
@@ -20,4 +21,4 @@ This code is using `jszip` using cloudflare CDN:
 ```
 
 ### Images
-![Image](https://raw.githubusercontent.com/ixjb94/section-manager/master/img9.png "Image")
+![Image](https://raw.githubusercontent.com/ixjb94/section-manager/master/img10.png "Image")

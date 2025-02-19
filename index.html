@@ -872,8 +872,9 @@
                 const dragHandle = document.createElement('div');
                 dragHandle.className = 'section-drag-handle';
                 dragHandle.innerHTML = '⋮⋮';
-                section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-header').firstChild);
-                
+                // section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-header').firstChild);
+                section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-actions'))
+
                 // Set up drag events
                 dragHandle.addEventListener('mousedown', startSectionDrag);
             });
@@ -1595,7 +1596,7 @@
                 sectionElement.innerHTML = `
                     <div class="section-header">
                         <div class="section-title" onclick="startEditingTitle(${sectionIndex}, this)">${section.title}</div>
-                        <div>
+                        <div class="section-actions">
                             <button class="add-item" onclick="addItem(${sectionIndex})">+</button>
                             <button class="remove-item" onclick="removeSection(${sectionIndex})">x</button>
                         </div>

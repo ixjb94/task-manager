@@ -506,6 +506,10 @@
             width: 20px;
             height: 20px;
         }
+        .item-buttons button:hover path {
+            fill: #16a09d;
+        }
+
         .item-buttons > button:not(:last-child) {
             border-right: 1px solid black;
             padding-right: 5px;
@@ -1770,7 +1774,7 @@
                                     </button>
                                 </div>
 
-                                <div class="timestamp">${item.timestamp} - <small> (CTRL + V)</small></div>
+                                <div class="timestamp">${item.timestamp}</div>
                             </div>
                         `).join('')}
                     </div>

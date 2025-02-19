@@ -21,4 +21,4 @@ This code is using `jszip` using cloudflare CDN:
 ```
 
 ### Images
-![Image](https://raw.githubusercontent.com/ixjb94/section-manager/master/img11.png "Image")
+![Image](https://raw.githubusercontent.com/ixjb94/section-manager/master/img12.png "Image")

@@ -1,4 +1,4 @@
-### Section Manager
+### Task Manager
 - Can Attach images as much as you want (Paste from Clipboard)
 - Save to localStorage
 - Export / Import (.zip)
@@ -13,7 +13,7 @@
 - Color Picker
 - Project Tabs
 
-### [Live Demo](https://ixjb94.github.io/section-manager/)
+### [Live Demo](https://ixjb94.github.io/task-manager/)
 
 ### Note
 This code is using `jszip` using cloudflare CDN:    
@@ -22,4 +22,4 @@ This code is using `jszip` using cloudflare CDN:
 ```
 
 ### Images
-![Image](https://raw.githubusercontent.com/ixjb94/section-manager/master/img14.png "Image")
+![Image](https://raw.githubusercontent.com/ixjb94/task-manager/master/img14.png "Image")

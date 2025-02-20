@@ -6,7 +6,7 @@
 - Auto adjust RTL/LTR languages
 - Modal Images
 - Resize Sections
-- Font Family / Size
+- Font Family / Size (Example: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif)
 - Record Audio
 - Record Video
 - Drag / Drop Re-order

@@ -2085,8 +2085,10 @@
                                 </div>
                                 
                                 <div class="item-audios">
-                                    ${item.audios ? item.audios.map((audio, audioIndex) => `
-                                        <div class="item-audio-container" onclick="openAudioModal('${audio}')">
+                                    ${item.audios ? item.audios.map((audioId, audioIndex) => `
+                                        <div class="item-audio-container" 
+                                            data-audio-id="${audioId}"
+                                            onclick="openAudioModal('')">
                                             <span>🎵 Recording ${audioIndex + 1}</span>
                                             <button class="remove-btn" onclick="removeAudio(${sectionIndex}, ${itemIndex}, ${audioIndex})">×</button>
                                         </div>
@@ -2297,7 +2299,6 @@
 
 // #######################################################################################################################[Start] Audio
         async function startAudioRecording(sectionIndex, itemIndex) {
-            // Get the button element, accounting for event bubbling
             const button = event.target.closest('.record-button');
             if (!button) return;
             
@@ -2314,24 +2315,28 @@
                     };
 
                     mediaRecorder.onstop = async () => {
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                        const audioBase64 = await blobToBase64(audioBlob);
-                        
-                        if (!currentProject.sections[sectionIndex].items[itemIndex].audios) {
-                            currentProject.sections[sectionIndex].items[itemIndex].audios = [];
-                        }
-                        currentProject.sections[sectionIndex].items[itemIndex].audios.push(audioBase64);
-                        saveProjects();
-                        renderSections();
+                        try {
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                            const audioId = await saveAudioToIndexedDB(audioBlob);
+                            
+                            if (!currentProject.sections[sectionIndex].items[itemIndex].audios) {
+                                currentProject.sections[sectionIndex].items[itemIndex].audios = [];
+                            }
+                            currentProject.sections[sectionIndex].items[itemIndex].audios.push(audioId.toString());
+                            saveProjects();
+                            renderSections();
 
-                        // Clean up
-                        stream.getTracks().forEach(track => track.stop());
-                        activeRecordButton = null;
+                            // Clean up
+                            stream.getTracks().forEach(track => track.stop());
+                            activeRecordButton = null;
+                        } catch (error) {
+                            console.error('Error saving audio recording:', error);
+                            alert('Failed to save the audio recording.');
+                        }
                     };
 
                     mediaRecorder.start();
                     button.classList.add('recording');
-                    // Replace the SVG content with "Recording..." text
                     button.innerHTML = 'Recording...';
                     activeRecordButton = button;
                 } catch (err) {
@@ -2341,21 +2346,34 @@
             } else if (mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
                 button.classList.remove('recording');
-                // Restore the original SVG content
                 button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 352 512"><path d="M176 352c53.02 0 96-42.98 96-96V96c0-53.02-42.98-96-96-96S80 42.98 80 96v160c0 53.02 42.98 96 96 96zm160-160h-16c-8.84 0-16 7.16-16 16v48c0 74.8-64.49 134.82-140.79 127.38C96.71 376.89 48 317.11 48 250.3V208c-0-8.84-7.16-16-16-16H16c-8.84 0-16 7.16-16 16v40.16c0 89.64 63.97 169.55 152 181.69V464H96c-8.84 0-16 7.16-16 16v16c0 8.84 7.16 16 16 16h160c8.84 0 16-7.16 16-16v-16c0-8.84-7.16-16-16-16h-56v-33.77C285.71 418.47 352 344.9 352 256v-48c0-8.84-7.16-16-16-16z"/></svg>`;
             }
         }
 
         function removeAudio(sectionIndex, itemIndex, audioIndex) {
-            event.stopPropagation(); // Prevent modal from opening
+            event.stopPropagation();
             
             const CONFIRM = confirm("Are you sure you want to delete this audio recording?");
             if (!CONFIRM) return false;
 
             const currentProject = projects.find(p => p.id === activeProject);
-
+            
+            // Get the audio ID before removing it from the array
+            const audioId = currentProject.sections[sectionIndex].items[itemIndex].audios[audioIndex];
+            
+            // Remove from sections data
             currentProject.sections[sectionIndex].items[itemIndex].audios.splice(audioIndex, 1);
             saveProjects();
+
+            // Remove from IndexedDB
+            try {
+                const transaction = db.transaction(["audios"], "readwrite");
+                const store = transaction.objectStore("audios");
+                store.delete(parseInt(audioId));
+            } catch (error) {
+                console.error('Error removing audio from IndexedDB:', error);
+            }
+
             renderSections();
         }
 
@@ -2374,6 +2392,47 @@
             modalAudio.currentTime = 0;
             modal.classList.remove('active');
             document.removeEventListener('keydown', handleEscapeKey);
+        }
+
+        async function loadAudioFromIndexedDB(audioId) {
+            if (!db) return;
+            
+            try {
+                const transaction = db.transaction(["audios"], "readonly");
+                const store = transaction.objectStore("audios");
+
+                return new Promise((resolve, reject) => {
+                    const request = store.get(parseInt(audioId));
+                    request.onsuccess = () => {
+                        if (request.result) {
+                            const blobUrl = URL.createObjectURL(request.result.data);
+                            resolve(blobUrl);
+                        } else {
+                            reject(new Error('Audio not found'));
+                        }
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('Error in loadAudioFromIndexedDB:', error);
+                throw error;
+            }
+        }
+
+        async function saveAudioToIndexedDB(blob) {
+            try {
+                const transaction = db.transaction(["audios"], "readwrite");
+                const store = transaction.objectStore("audios");
+                
+                return new Promise((resolve, reject) => {
+                    const request = store.add({ data: blob, timestamp: new Date().getTime() });
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('Error in saveAudioToIndexedDB:', error);
+                throw error;
+            }
         }
 // #######################################################################################################################[End] Audio
 
@@ -2876,7 +2935,7 @@
                 }
 
                 button.classList.remove('recording');
-                button.innerHTML = `<svg> my svg icon... </svg>`;
+                button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>`;
                 activeRecordButton = null;
             }
         }
@@ -2984,7 +3043,7 @@
 // #######################################################################################################################[Start] Init
         async function initDB() {
             return new Promise((resolve, reject) => {
-                const request = indexedDB.open(dbName, dbVersion + 1); // Increment version to trigger upgrade
+                const request = indexedDB.open(dbName, dbVersion + 1);
 
                 request.onerror = (event) => {
                     console.error("IndexedDB error:", event.target.error);
@@ -3001,6 +3060,10 @@
                     }
                     if (!db.objectStoreNames.contains("files")) {
                         db.createObjectStore("files", { keyPath: "id", autoIncrement: true });
+                    }
+                    // Add audio store
+                    if (!db.objectStoreNames.contains("audios")) {
+                        db.createObjectStore("audios", { keyPath: "id", autoIncrement: true });
                     }
                 };
 
@@ -3022,6 +3085,19 @@
             
             // Only proceed with video loading if DB is ready
             if (db) {
+                
+                // Handle audio loading from IndexedDB
+                document.querySelectorAll('.item-audio-container').forEach(async (container) => {
+                    try {
+                        const audioId = container.getAttribute('data-audio-id');
+                        if (audioId) {
+                            const blobUrl = await loadAudioFromIndexedDB(audioId);
+                            container.setAttribute('onclick', `openAudioModal('${blobUrl}')`);
+                        }
+                    } catch (err) {
+                        console.error('Error loading audio:', err);
+                    }
+                });
                 
                 // Handle image loading from IndexedDB
                 await loadImages();

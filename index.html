@@ -2246,27 +2246,6 @@
                         saveProjects();
                         renderSections();
                     }
-                    // @TODO - Remove Me
-                    else if (item.type === 'text/plain') {
-                        const text = await new Promise(resolve => {
-                            item.getAsString(resolve);
-                        });
-                        
-                        // Only handle as file if it looks like code or structured content
-                        if (text.includes('{') || text.includes('<') || text.includes('function')) {
-                            e.preventDefault();
-                            if (!currentProject.sections[sectionIndex].items[itemIndex].files) {
-                                currentProject.sections[sectionIndex].items[itemIndex].files = [];
-                            }
-                            currentProject.sections[sectionIndex].items[itemIndex].files.push({
-                                name: `pasted_content_${new Date().getTime()}.txt`,
-                                content: text,
-                                type: 'text/plain'
-                            });
-                            saveProjects();
-                            renderSections();
-                        }
-                    }
                 }
             }
         }

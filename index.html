@@ -2922,23 +2922,27 @@
         }
 
         function removeVideo(sectionIndex, itemIndex, videoIndex) {
-            const CONFIRM = confirm("Are you sure you want to delete this video?");
-            if (!CONFIRM) return false;
+            try {
+                const CONFIRM = confirm("Are you sure you want to delete this video?");
+                if (!CONFIRM) return false;
 
-            const currentProject = projects.find(p => p.id === activeProject);
+                const currentProject = projects.find(p => p.id === activeProject);
 
-            const videoId = currentProject.sections[sectionIndex].items[itemIndex].videos[videoIndex];
-            
-            // Remove from sections data
-            currentProject.sections[sectionIndex].items[itemIndex].videos.splice(videoIndex, 1);
-            saveProjects();
+                const videoId = currentProject.sections[sectionIndex].items[itemIndex].videos[videoIndex];
+                
+                // Remove from sections data
+                currentProject.sections[sectionIndex].items[itemIndex].videos.splice(videoIndex, 1);
+                saveProjects();
 
-            // Remove from IndexedDB
-            const transaction = db.transaction(["videos"], "readwrite");
-            const store = transaction.objectStore("videos");
-            store.delete(parseInt(videoId));
+                // Remove from IndexedDB
+                const transaction = db.transaction(["videos"], "readwrite");
+                const store = transaction.objectStore("videos");
+                store.delete(parseInt(videoId));
 
-            renderSections();
+                renderSections();
+            } catch (error) {
+                console.error('Failed to removeVideo:', error);
+            }
         }
 // #######################################################################################################################[End] Video
 

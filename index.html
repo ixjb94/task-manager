@@ -2522,6 +2522,9 @@
                 try {
                     const imageId = img.dataset.imageId;
                     const blobUrl = await loadImageFromIndexedDB(imageId);
+                    
+                    if (!blobUrl) return;
+
                     img.src = blobUrl;
                 } catch (err) {
                     console.error('Error loading image:', err);

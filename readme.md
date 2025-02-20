@@ -26,4 +26,4 @@ git clone https://github.com/ixjb94/task-manager.git
 Then run the `index.html` file
 
 ### Images
-![Image](https://raw.githubusercontent.com/ixjb94/task-manager/master/img14.png "Image")
+![Image](https://raw.githubusercontent.com/ixjb94/task-manager/master/img15.png "Image")

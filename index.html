@@ -1347,20 +1347,6 @@
 // #######################################################################################################################[Start] Drag / Drop
         
         // ### Project
-        function initializeProjectDragAndDrop() {
-            document.querySelectorAll('.project-tab').forEach(project => {
-                // Create and add drag handle to each project tab
-                const dragHandle = document.createElement('div');
-                dragHandle.className = 'project-drag-handle';
-                dragHandle.innerHTML = '⋮';
-                // project.insertBefore(dragHandle, project.firstChild);
-                project.insertBefore(dragHandle, project.querySelector(".project-tab .remove-project"));
-
-                // Set up drag events
-                dragHandle.addEventListener('mousedown', startProjectDrag);
-            });
-        }
-
         function startProjectDrag(e) {
             e.preventDefault();
             
@@ -1491,19 +1477,6 @@
         }
 
         // ### Section
-        function initializeSectionDragAndDrop() {
-            document.querySelectorAll('.section').forEach(section => {
-                // Create and add drag handle to each section header
-                const dragHandle = document.createElement('div');
-                dragHandle.className = 'section-drag-handle';
-                dragHandle.innerHTML = '⋮⋮';
-                // section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-header').firstChild);
-                section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-actions'))
-
-                // Set up drag events
-                dragHandle.addEventListener('mousedown', startSectionDrag);
-            });
-        }
 
         function startSectionDrag(e) {
             e.preventDefault();
@@ -1637,19 +1610,6 @@
         }
 
         // ### Item
-        function initializeDragAndDrop() {
-            document.querySelectorAll('.item').forEach(item => {
-                // Create and add drag handle to each item
-                const dragHandle = document.createElement('div');
-                dragHandle.className = 'drag-handle';
-                dragHandle.innerHTML = '⋮⋮';
-                item.insertBefore(dragHandle, item.firstChild);
-                
-                // Set up drag events
-                dragHandle.addEventListener('mousedown', startDrag);
-            });
-        }
-
         function startDrag(e) {
             e.preventDefault();
             
@@ -1839,6 +1799,22 @@
 
 
 // #######################################################################################################################[Start] Projects
+
+        // handler
+        function initializeProjectDragAndDrop() {
+            document.querySelectorAll('.project-tab').forEach(project => {
+                // Create and add drag handle to each project tab
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'project-drag-handle';
+                dragHandle.innerHTML = '⋮';
+                // project.insertBefore(dragHandle, project.firstChild);
+                project.insertBefore(dragHandle, project.querySelector(".project-tab .remove-project"));
+
+                // Set up drag events
+                dragHandle.addEventListener('mousedown', startProjectDrag);
+            });
+        }
+        
         function addProject(name) {
             if (!name.trim()) {
                 alert("Please enter a project name");
@@ -1987,6 +1963,20 @@
 
 
 // #######################################################################################################################[Start] Section
+        function initializeSectionDragAndDrop() {
+            document.querySelectorAll('.section').forEach(section => {
+                // Create and add drag handle to each section header
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'section-drag-handle';
+                dragHandle.innerHTML = '⋮⋮';
+                // section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-header').firstChild);
+                section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-actions'))
+
+                // Set up drag events
+                dragHandle.addEventListener('mousedown', startSectionDrag);
+            });
+        }
+
         function startEditingTitle(sectionIndex, titleElement) {
             const currentProject = projects.find(p => p.id === activeProject);
 
@@ -2262,6 +2252,19 @@
 
 
 // #######################################################################################################################[Start] Item
+        function initializeItemDragAndDrop() {
+            document.querySelectorAll('.item').forEach(item => {
+                // Create and add drag handle to each item
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'drag-handle';
+                dragHandle.innerHTML = '⋮⋮';
+                item.insertBefore(dragHandle, item.firstChild);
+                
+                // Set up drag events
+                dragHandle.addEventListener('mousedown', startDrag);
+            });
+        }
+
         function removeItem(sectionIndex, itemIndex) {
             
             const CONFIRM = confirm("Are you sure?");
@@ -2294,6 +2297,7 @@
                 text: '',
                 images: [],
                 audios: [],
+                videos: [],
                 files: [],
                 timestamp
             });
@@ -2864,7 +2868,7 @@
         
         renderSections = async function() {
             originalRenderSections();
-            initializeDragAndDrop();
+            initializeItemDragAndDrop();
             initializeSectionDragAndDrop();
             updateFont();
             

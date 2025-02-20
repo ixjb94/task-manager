@@ -943,7 +943,8 @@
         ];
         let db;
         const dbName = "SectionManagerDB";
-        const dbVersion = 4;
+        const dbVersion = 5;
+
         let mediaRecorder = null;
         let audioChunks = [];
         let activeRecordButton = null;
@@ -1477,7 +1478,6 @@
         }
 
         // ### Section
-
         function startSectionDrag(e) {
             e.preventDefault();
             
@@ -1799,8 +1799,6 @@
 
 
 // #######################################################################################################################[Start] Projects
-
-        // handler
         function initializeProjectDragAndDrop() {
             document.querySelectorAll('.project-tab').forEach(project => {
                 // Create and add drag handle to each project tab
@@ -2075,9 +2073,12 @@
                                 >${item.text || ''}</textarea>
                                 
                                 <div class="item-images">
-                                    ${item.images ? item.images.map((image, imageIndex) => `
+                                    ${item.images ? item.images.map((imageId, imageIndex) => `
                                         <div class="item-image-container">
-                                            <img src="${image}" alt="Item image" onclick="openImageModal('${image}')">
+                                            <img 
+                                                data-image-id="${imageId}" 
+                                                alt="Item image" 
+                                                onclick="openImageModal(this.src)">
                                             <button class="remove-btn" onclick="removeImage(${sectionIndex}, ${itemIndex}, ${imageIndex})">×</button>
                                         </div>
                                     `).join('') : ''}
@@ -2179,6 +2180,25 @@
                 }
             });
             
+            // After rendering, load images
+            document.querySelectorAll('.item-images img').forEach(async (img) => {
+                try {
+                    const imageUrl = img.src;
+                    if (imageUrl) {
+                        const imageId = imageUrl.split('://')[1];
+                        const blobUrl = await loadImageFromIndexedDB(imageId);
+                        img.src = blobUrl;
+                    }
+                    // if (imageUrl.startsWith('indexeddb://')) {
+                    //     const imageId = imageUrl.split('://')[1];
+                    //     const blobUrl = await loadImageFromIndexedDB(imageId);
+                    //     img.src = blobUrl;
+                    // }
+                } catch (err) {
+                    console.error('Error loading image:', err);
+                }
+            });
+            
             // Initialize all previous event listeners
             document.querySelectorAll('.item-input').forEach(textarea => {
                 autoResize(textarea);
@@ -2217,15 +2237,17 @@
                         e.preventDefault();
 
                         const blob = item.getAsFile();
-                        const image = await blobToBase64(blob);
+                        const imageId = await saveImageToIndexedDB(blob);
                         
                         if (!currentProject.sections[sectionIndex].items[itemIndex].images) {
                             currentProject.sections[sectionIndex].items[itemIndex].images = [];
                         }
-                        currentProject.sections[sectionIndex].items[itemIndex].images.push(image);
+                        currentProject.sections[sectionIndex].items[itemIndex].images.push(imageId.toString());
                         saveProjects();
                         renderSections();
-                    } else if (item.type === 'text/plain') {
+                    }
+                    // @TODO - Remove Me
+                    else if (item.type === 'text/plain') {
                         const text = await new Promise(resolve => {
                             item.getAsString(resolve);
                         });
@@ -2392,13 +2414,11 @@
 
 
 // #######################################################################################################################[Start] Image
-        function openImageModal(imageSrc) {
+        async function openImageModal(imageSrc) {
             const modal = document.getElementById('imageModal');
             const modalImage = document.getElementById('modalImage');
             modalImage.src = imageSrc;
             modal.classList.add('active');
-
-            // Add escape key listener
             document.addEventListener('keydown', handleEscapeKey);
         }
 
@@ -2441,12 +2461,18 @@
         }
 
         function removeImage(sectionIndex, itemIndex, imageIndex) {
-            
             const CONFIRM = confirm("Are you sure?");
-            if (!CONFIRM) return false
+            if (!CONFIRM) return false;
 
             const currentProject = projects.find(p => p.id === activeProject);
+            const imageId = currentProject.sections[sectionIndex].items[itemIndex].images[imageIndex];
 
+            // Remove from IndexedDB
+            const transaction = db.transaction(["images"], "readwrite");
+            const store = transaction.objectStore("images");
+            store.delete(parseInt(imageId));
+
+            // Remove from sections data
             currentProject.sections[sectionIndex].items[itemIndex].images.splice(imageIndex, 1);
             saveProjects();
             renderSections();
@@ -2455,19 +2481,19 @@
         function handleImageAttachment(sectionIndex, itemIndex) {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = 'image/*'; // Accept only images
+            input.accept = 'image/*';
 
             input.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (file) {
                     try {
                         const currentProject = projects.find(p => p.id === activeProject);
-
-                        const imageBase64 = await blobToBase64(file);
+                        const imageId = await saveImageToIndexedDB(file);
+                        
                         if (!currentProject.sections[sectionIndex].items[itemIndex].images) {
                             currentProject.sections[sectionIndex].items[itemIndex].images = [];
                         }
-                        currentProject.sections[sectionIndex].items[itemIndex].images.push(imageBase64);
+                        currentProject.sections[sectionIndex].items[itemIndex].images.push(imageId.toString());
                         saveProjects();
                         renderSections();
                     } catch (err) {
@@ -2478,6 +2504,69 @@
             };
 
             input.click();
+        }
+
+        async function saveImageToIndexedDB(blob) {
+            try {
+                const transaction = db.transaction(["images"], "readwrite");
+                const store = transaction.objectStore("images");
+                
+                return new Promise((resolve, reject) => {
+                    const request = store.add({ data: blob, timestamp: new Date().getTime() });
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('Error in saveImageToIndexedDB:', error);
+                throw error;
+            }
+        }
+
+        async function loadImageFromIndexedDB(imageId) {
+            if (!db) return;
+            
+            try {
+                const transaction = db.transaction(["images"], "readonly");
+                const store = transaction.objectStore("images");
+
+                return new Promise((resolve, reject) => {
+                    const request = store.get(parseInt(imageId));
+                    request.onsuccess = () => {
+                        if (request.result) {
+                            const blobUrl = URL.createObjectURL(request.result.data);
+                            resolve(blobUrl);
+                        } else {
+                            reject(new Error('Image not found'));
+                        }
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('Error in loadImageFromIndexedDB:', error);
+                throw error;
+            }
+        }
+
+        async function loadImages() {
+            const imageElements = document.querySelectorAll('[data-image-id]');
+            for (const img of imageElements) {
+                try {
+                    const imageId = img.dataset.imageId;
+                    const blobUrl = await loadImageFromIndexedDB(imageId);
+                    img.src = blobUrl;
+                } catch (err) {
+                    console.error('Error loading image:', err);
+                    img.src = 'placeholder.png'; // Or some default image
+                }
+            }
+        }
+
+        function cleanupBlobUrls() {
+            document.querySelectorAll('[data-image-id]').forEach(img => {
+                if (img.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(img.src);
+                }
+            });
         }
 // #######################################################################################################################[End] Image
 
@@ -2843,7 +2932,7 @@
 // #######################################################################################################################[Start] Init
         async function initDB() {
             return new Promise((resolve, reject) => {
-                const request = indexedDB.open(dbName, dbVersion);
+                const request = indexedDB.open(dbName, dbVersion); // Increment version to trigger upgrade
 
                 request.onerror = (event) => {
                     console.error("IndexedDB error:", event.target.error);
@@ -2854,6 +2943,9 @@
                     const db = event.target.result;
                     if (!db.objectStoreNames.contains("videos")) {
                         db.createObjectStore("videos", { keyPath: "id", autoIncrement: true });
+                    }
+                    if (!db.objectStoreNames.contains("images")) {
+                        db.createObjectStore("images", { keyPath: "id", autoIncrement: true });
                     }
                 };
 
@@ -2867,6 +2959,7 @@
         const originalRenderSections = renderSections;
         
         renderSections = async function() {
+            cleanupBlobUrls();
             originalRenderSections();
             initializeItemDragAndDrop();
             initializeSectionDragAndDrop();
@@ -2874,6 +2967,10 @@
             
             // Only proceed with video loading if DB is ready
             if (db) {
+                
+                // Handle image loading from IndexedDB
+                await loadImages();
+
                 // Handle video loading from IndexedDB
                 const videoElements = document.querySelectorAll('.item-video');
                 for (const video of videoElements) {

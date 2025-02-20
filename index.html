@@ -362,7 +362,7 @@
         }
 
         .record-button {
-            background-color: white;
+            background: none;
             border: none;
             color: white;
             cursor: pointer;
@@ -440,7 +440,7 @@
         }
 
         .attach-image-button {
-            background-color: white;
+            background: none;
             border: none;
             color: white;
             cursor: pointer;
@@ -449,7 +449,7 @@
 
         /* Add styles for the attach file button */
         .attach-file-button {
-            background-color: white;
+            background: none;
             border: none;
             color: white;
             cursor: pointer;
@@ -489,7 +489,7 @@
         }
 
         .record-video-button {
-            background-color: white;
+            background: none;
             border: none;
             color: white;
             cursor: pointer;
@@ -507,11 +507,10 @@
             height: 20px;
         }
         .item-buttons button:hover path {
-            fill: #16a09d;
+            fill: #16a09d !important;
         }
 
         .item-buttons > button:not(:last-child) {
-            border-right: 1px solid black;
             padding-right: 5px;
         }
 
@@ -602,15 +601,9 @@
         }
 
         .color-button svg {
-            width: 16px;
-            height: 16px;
-            fill: #666;
+            width: 18px;
+            height: 18px;
         }
-
-        .color-button:hover svg {
-            fill: #333;
-        }
-
         .color-palette {
             display: none;
             position: absolute;
@@ -618,17 +611,17 @@
             left: 0;
             background: white;
             border: 1px solid #ccc;
-            border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             z-index: 1000;
         }
 
         .color-palette.show {
             display: block;
+            display: flex;
         }
 
         .color-option {
-            padding: 10px 50px;
+            padding: 8px 15px;
             cursor: pointer;
             white-space: nowrap;
             transition: opacity 0.2s;
@@ -637,6 +630,20 @@
         .color-option:hover {
             opacity: 0.8;
         }
+
+        /* Add styles for color transition */
+        .item, .item-input {
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* .item[data-color-scheme] .item-buttons button {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        } */
+
+        /* .item[data-color-scheme] .item-buttons button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        } */
     </style>
     <style id="fonts"></style>
 </head>
@@ -783,11 +790,33 @@
             // Store the color scheme in the item
             item.colorScheme = colorIndex;
             
-            // Apply colors to textarea
+            // Get elements
+            const itemContainer = document.querySelector(`[data-section="${sectionIndex}"][data-item="${itemIndex}"]`);
             const textarea = document.querySelector(`textarea[name="NAME_${sectionIndex}_${itemIndex}"]`);
+            const timestamp = itemContainer.querySelector('.timestamp');
+            const svgPaths = itemContainer.querySelectorAll('.item-buttons svg path');
             const scheme = colorSchemes[colorIndex];
-            textarea.style.backgroundColor = scheme.background;
-            textarea.style.color = scheme.color;
+            
+            // Apply colors to both elements
+            [itemContainer, textarea].forEach(element => {
+                if (element) {
+                    element.style.backgroundColor = scheme.background;
+                    element.style.color = scheme.color;
+                }
+            });
+            
+            // Apply color to timestamp
+            if (timestamp) {
+                timestamp.style.color = scheme.color;
+            }
+            
+            // Apply color to all SVG paths
+            svgPaths.forEach(path => {
+                path.style.fill = scheme.color;
+            });
+            
+            // Add color scheme data attribute for specific styling
+            itemContainer.dataset.colorScheme = colorIndex;
             
             // Save changes
             saveProjects();
@@ -1951,7 +1980,13 @@
                     </div>
                     <div class="items">
                         ${section.items.map((item, itemIndex) => `
-                            <div class="item" data-section="${sectionIndex}" data-item="${itemIndex}">
+                            <div class="item" data-section="${sectionIndex}"
+                                data-item="${itemIndex}"
+                                ${item.colorScheme !== undefined ? 
+                                `style="background-color: ${colorSchemes[item.colorScheme].background}; color: ${colorSchemes[item.colorScheme].color};" 
+                                data-color-scheme="${item.colorScheme}"` : 
+                                ''}
+                            >
                                 <button class="remove-btn" onclick="removeItem(${sectionIndex}, ${itemIndex})">×</button>
                                 <textarea
                                     name="NAME_${sectionIndex}_${itemIndex}"
@@ -2011,22 +2046,23 @@
 
                                 <div class="item-buttons">
                                     <button class="attach-file-button" onclick="handleFileAttachment(${sectionIndex}, ${itemIndex})">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M43.246 466.142c-58.43-60.289-57.341-157.511 1.386-217.581L254.392 34c44.316-45.332 116.351-45.336 160.671 0 43.89 44.894 43.943 117.329 0 162.276L232.214 383.128c-29.855 30.537-78.633 30.111-107.982-.998-28.275-29.97-27.368-77.473 1.452-106.953l143.743-146.835c6.182-6.314 16.312-6.422 22.626-.241l22.861 22.379c6.315 6.182 6.422 16.312.241 22.626L171.427 319.927c-4.932 5.045-5.236 13.428-.648 18.292 4.372 4.634 11.245 4.711 15.688.165l182.849-186.851c19.613-20.062 19.613-52.725-.011-72.798-19.189-19.627-49.957-19.637-69.154 0L90.39 293.295c-34.763 35.56-35.299 93.12-1.191 128.313 34.01 35.093 88.985 35.137 123.058.286l172.06-175.999c6.177-6.319 16.307-6.433 22.626-.256l22.877 22.364c6.319 6.177 6.434 16.307.256 22.626l-172.06 175.998c-59.576 60.938-155.943 60.216-214.77-.485z"/></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M43.246 466.142c-58.43-60.289-57.341-157.511 1.386-217.581L254.392 34c44.316-45.332 116.351-45.336 160.671 0 43.89 44.894 43.943 117.329 0 162.276L232.214 383.128c-29.855 30.537-78.633 30.111-107.982-.998-28.275-29.97-27.368-77.473 1.452-106.953l143.743-146.835c6.182-6.314 16.312-6.422 22.626-.241l22.861 22.379c6.315 6.182 6.422 16.312.241 22.626L171.427 319.927c-4.932 5.045-5.236 13.428-.648 18.292 4.372 4.634 11.245 4.711 15.688.165l182.849-186.851c19.613-20.062 19.613-52.725-.011-72.798-19.189-19.627-49.957-19.637-69.154 0L90.39 293.295c-34.763 35.56-35.299 93.12-1.191 128.313 34.01 35.093 88.985 35.137 123.058.286l172.06-175.999c6.177-6.319 16.307-6.433 22.626-.256l22.877 22.364c6.319 6.177 6.434 16.307.256 22.626l-172.06 175.998c-59.576 60.938-155.943 60.216-214.77-.485z"/></svg>
                                     </button>
                                     <button class="attach-image-button" onclick="handleImageAttachment(${sectionIndex}, ${itemIndex})">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M369.9 97.9L286 14C277 5 264.8-.1 252.1-.1H48C21.5 0 0 21.5 0 48v416c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V131.9c0-12.7-5.1-25-14.1-34zM332.1 128H256V51.9l76.1 76.1zM48 464V48h160v104c0 13.3 10.7 24 24 24h104v288H48zm32-48h224V288l-23.5-23.5c-4.7-4.7-12.3-4.7-17 0L176 352l-39.5-39.5c-4.7-4.7-12.3-4.7-17 0L80 352v64zm48-240c-26.5 0-48 21.5-48 48s21.5 48 48 48 48-21.5 48-48-21.5-48-48-48z"/></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M369.9 97.9L286 14C277 5 264.8-.1 252.1-.1H48C21.5 0 0 21.5 0 48v416c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V131.9c0-12.7-5.1-25-14.1-34zM332.1 128H256V51.9l76.1 76.1zM48 464V48h160v104c0 13.3 10.7 24 24 24h104v288H48zm32-48h224V288l-23.5-23.5c-4.7-4.7-12.3-4.7-17 0L176 352l-39.5-39.5c-4.7-4.7-12.3-4.7-17 0L80 352v64zm48-240c-26.5 0-48 21.5-48 48s21.5 48 48 48 48-21.5 48-48-21.5-48-48-48z"/></svg>
                                     </button>
                                     <button class="record-button" onclick="toggleRecording(${sectionIndex}, ${itemIndex})">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 352 512"><path d="M176 352c53.02 0 96-42.98 96-96V96c0-53.02-42.98-96-96-96S80 42.98 80 96v160c0 53.02 42.98 96 96 96zm160-160h-16c-8.84 0-16 7.16-16 16v48c0 74.8-64.49 134.82-140.79 127.38C96.71 376.89 48 317.11 48 250.3V208c0-8.84-7.16-16-16-16H16c-8.84 0-16 7.16-16 16v40.16c0 89.64 63.97 169.55 152 181.69V464H96c-8.84 0-16 7.16-16 16v16c0 8.84 7.16 16 16 16h160c8.84 0 16-7.16 16-16v-16c0-8.84-7.16-16-16-16h-56v-33.77C285.71 418.47 352 344.9 352 256v-48c0-8.84-7.16-16-16-16z"/></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 352 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M176 352c53.02 0 96-42.98 96-96V96c0-53.02-42.98-96-96-96S80 42.98 80 96v160c0 53.02 42.98 96 96 96zm160-160h-16c-8.84 0-16 7.16-16 16v48c0 74.8-64.49 134.82-140.79 127.38C96.71 376.89 48 317.11 48 250.3V208c0-8.84-7.16-16-16-16H16c-8.84 0-16 7.16-16 16v40.16c0 89.64 63.97 169.55 152 181.69V464H96c-8.84 0-16 7.16-16 16v16c0 8.84 7.16 16 16 16h160c8.84 0 16-7.16 16-16v-16c0-8.84-7.16-16-16-16h-56v-33.77C285.71 418.47 352 344.9 352 256v-48c0-8.84-7.16-16-16-16z"/></svg>
                                     </button>
                                     <button class="record-video-button" onclick="startVideoCapture(${sectionIndex}, ${itemIndex})">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>
                                     </button>
                                     
                                     <div class="color-selector">
                                         <button class="color-button" onclick="toggleColorPalette(${sectionIndex}, ${itemIndex})">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16">
-                                                <path d="M204.3 5C104.9 24.4 24.8 104.3 5.2 203.4c-37 187 131.7 326.4 258.8 306.7 41.2-6.4 61.4-54.6 42.5-91.7-23.1-45.4 9.9-98.4 60.9-98.4h79.7c35.8 0 64.8-29.6 64.9-65.3C511.5 97.1 368.1-26.9 204.3 5zM96 320c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm32-128c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128-64c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128 64c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32z"/>
+                                                <path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}"
+                                                    d="M204.3 5C104.9 24.4 24.8 104.3 5.2 203.4c-37 187 131.7 326.4 258.8 306.7 41.2-6.4 61.4-54.6 42.5-91.7-23.1-45.4 9.9-98.4 60.9-98.4h79.7c35.8 0 64.8-29.6 64.9-65.3C511.5 97.1 368.1-26.9 204.3 5zM96 320c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm32-128c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128-64c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128 64c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32z"/>
                                             </svg>
                                         </button>
                                         <div class="color-palette" id="colorPalette_${sectionIndex}_${itemIndex}">
@@ -2042,8 +2078,10 @@
 
                                 </div>
 
-
-                                <div class="timestamp">${item.timestamp}</div>
+                                <div class="timestamp" ${item.colorScheme !== undefined ? 
+                                    `style="color: ${colorSchemes[item.colorScheme].color};"` : 
+                                    ''}>${item.timestamp}
+                                </div>
                             </div>
                         `).join('')}
                     </div>

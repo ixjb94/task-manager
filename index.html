@@ -2575,14 +2575,15 @@
             const fileId = currentProject.sections[sectionIndex].items[itemIndex].files[fileIndex].id;
 
             try {
+                // Remove from project data
+                currentProject.sections[sectionIndex].items[itemIndex].files.splice(fileIndex, 1);
+                saveProjects();
+                
                 // Remove from IndexedDB
                 const transaction = db.transaction(["files"], "readwrite");
                 const store = transaction.objectStore("files");
                 await store.delete(parseInt(fileId));
 
-                // Remove from project data
-                currentProject.sections[sectionIndex].items[itemIndex].files.splice(fileIndex, 1);
-                saveProjects();
                 renderSections();
             } catch (error) {
                 console.error('Error removing file:', error);

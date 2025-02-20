@@ -15,11 +15,14 @@
 
 ### [Live Demo](https://ixjb94.github.io/task-manager/)
 
-### Note
-This code is using `jszip` using cloudflare CDN:    
+### How to
+You can run this code locally on your computer (offline).    
+[Download .zip](https://github.com/ixjb94/task-manager/archive/refs/heads/main.zip)    
+OR
 ```
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+git clone https://github.com/ixjb94/task-manager.git
 ```
+Then run the `index.html` file
 
 ### Images
 ![Image](https://raw.githubusercontent.com/ixjb94/task-manager/master/img14.png "Image")

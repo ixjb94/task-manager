@@ -10,6 +10,7 @@
 - Record Video
 - Drag / Drop Re-order
 - File Attachment (.txt, .html, .md, etc)
+- Color Picker
 - Project Tabs
 
 ### [Live Demo](https://ixjb94.github.io/section-manager/)

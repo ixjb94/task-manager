@@ -1,4 +1,5 @@
 ### Task Manager
+- Lightweight Vanilla JavaScript
 - Can Attach images as much as you want (Paste from Clipboard)
 - Save to localStorage
 - Export / Import (.zip)

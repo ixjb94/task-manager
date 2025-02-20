@@ -2929,14 +2929,15 @@
 
             const videoId = currentProject.sections[sectionIndex].items[itemIndex].videos[videoIndex];
             
+            // Remove from sections data
+            currentProject.sections[sectionIndex].items[itemIndex].videos.splice(videoIndex, 1);
+            saveProjects();
+
             // Remove from IndexedDB
             const transaction = db.transaction(["videos"], "readwrite");
             const store = transaction.objectStore("videos");
             store.delete(parseInt(videoId));
 
-            // Remove from sections data
-            currentProject.sections[sectionIndex].items[itemIndex].videos.splice(videoIndex, 1);
-            saveProjects();
             renderSections();
         }
 // #######################################################################################################################[End] Video

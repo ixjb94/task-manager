@@ -585,6 +585,58 @@
             position: sticky;
             padding: 10px;
         }
+        /* Color picker */
+        .color-selector {
+            position: relative;
+            display: inline-block;
+        }
+
+        .color-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .color-button svg {
+            width: 16px;
+            height: 16px;
+            fill: #666;
+        }
+
+        .color-button:hover svg {
+            fill: #333;
+        }
+
+        .color-palette {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .color-palette.show {
+            display: block;
+        }
+
+        .color-option {
+            padding: 10px 50px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+        }
+
+        .color-option:hover {
+            opacity: 0.8;
+        }
     </style>
     <style id="fonts"></style>
 </head>
@@ -659,6 +711,15 @@
 
     <script>
         // let sections = JSON.parse(localStorage.getItem('sections')) || [];
+        const colorSchemes = [
+            { background: '#aa0caa', color: 'white', name: 'Purple_1' },
+            { background: '#4e0dbe', color: 'white', name: 'Purple_2' },
+            { background: '#6bff33', color: 'black', name: 'Green' },
+            { background: '#aa1212', color: 'white', name: 'Red' },
+            { background: '#1260aa', color: 'white', name: 'Blue_1' },
+            { background: '#c8e8fe', color: 'black', name: 'Blue_2' },
+            { background: '#ffffff', color: 'black', name: 'White' },
+        ];
         let activeResizeHandle = null;
         let startX;
         let startWidth;
@@ -688,6 +749,49 @@
                 sections: JSON.parse(localStorage.getItem('sections')) || []
             }
         ];
+
+        // ### Color Picker
+        function toggleColorPalette(sectionIndex, itemIndex) {
+            const paletteId = `colorPalette_${sectionIndex}_${itemIndex}`;
+            const palette = document.getElementById(paletteId);
+            
+            // Close all other open palettes
+            document.querySelectorAll('.color-palette.show').forEach(p => {
+                if (p.id !== paletteId) {
+                    p.classList.remove('show');
+                }
+            });
+            
+            palette.classList.toggle('show');
+            
+            // Close palette when clicking outside
+            const closeHandler = (e) => {
+                if (!e.target.closest('.color-selector')) {
+                    palette.classList.remove('show');
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+            setTimeout(() => {
+                document.addEventListener('click', closeHandler);
+            }, 0);
+        }
+
+        function changeItemColor(sectionIndex, itemIndex, colorIndex) {
+            const currentProject = projects.find(p => p.id === activeProject);
+            const item = currentProject.sections[sectionIndex].items[itemIndex];
+            
+            // Store the color scheme in the item
+            item.colorScheme = colorIndex;
+            
+            // Apply colors to textarea
+            const textarea = document.querySelector(`textarea[name="NAME_${sectionIndex}_${itemIndex}"]`);
+            const scheme = colorSchemes[colorIndex];
+            textarea.style.backgroundColor = scheme.background;
+            textarea.style.color = scheme.color;
+            
+            // Save changes
+            saveProjects();
+        }
 
         // ### Projects
         function addProject(name) {
@@ -1854,6 +1958,9 @@
                                     class="item-input ${isRTL(item.text || '') ? 'rtl' : 'ltr'}"
                                     oninput="autoResize(this)"
                                     onchange="updateItemText(${sectionIndex}, ${itemIndex}, this.value)"
+                                    ${item.colorScheme !== undefined ? 
+                                        `style="background-color: ${colorSchemes[item.colorScheme].background}; color: ${colorSchemes[item.colorScheme].color};"` : 
+                                    ''}
                                     placeholder="Text..."
                                 >${item.text || ''}</textarea>
                                 
@@ -1915,7 +2022,26 @@
                                     <button class="record-video-button" onclick="startVideoCapture(${sectionIndex}, ${itemIndex})">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>
                                     </button>
+                                    
+                                    <div class="color-selector">
+                                        <button class="color-button" onclick="toggleColorPalette(${sectionIndex}, ${itemIndex})">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16">
+                                                <path d="M204.3 5C104.9 24.4 24.8 104.3 5.2 203.4c-37 187 131.7 326.4 258.8 306.7 41.2-6.4 61.4-54.6 42.5-91.7-23.1-45.4 9.9-98.4 60.9-98.4h79.7c35.8 0 64.8-29.6 64.9-65.3C511.5 97.1 368.1-26.9 204.3 5zM96 320c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm32-128c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128-64c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128 64c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32z"/>
+                                            </svg>
+                                        </button>
+                                        <div class="color-palette" id="colorPalette_${sectionIndex}_${itemIndex}">
+                                            ${colorSchemes.map((scheme, index) => `
+                                                <div class="color-option" 
+                                                    onclick="changeItemColor(${sectionIndex}, ${itemIndex}, ${index})"
+                                                    style="background-color: ${scheme.background}; color: ${scheme.color}">
+                                                    <!-- ${scheme.name} -->
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+
                                 </div>
+
 
                                 <div class="timestamp">${item.timestamp}</div>
                             </div>

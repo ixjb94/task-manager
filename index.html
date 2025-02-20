@@ -979,6 +979,7 @@
         ];
 // #######################################################################################################################[End] Variables -> Global
 
+
 // #######################################################################################################################[Start] Export and Import
         function exportData() {
             const loadingMessage = document.createElement('div');
@@ -1342,6 +1343,501 @@
 // #######################################################################################################################[End] Color Picker
 
 
+
+// #######################################################################################################################[Start] Drag / Drop
+        
+        // ### Project
+        function initializeProjectDragAndDrop() {
+            document.querySelectorAll('.project-tab').forEach(project => {
+                // Create and add drag handle to each project tab
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'project-drag-handle';
+                dragHandle.innerHTML = '⋮';
+                // project.insertBefore(dragHandle, project.firstChild);
+                project.insertBefore(dragHandle, project.querySelector(".project-tab .remove-project"));
+
+                // Set up drag events
+                dragHandle.addEventListener('mousedown', startProjectDrag);
+            });
+        }
+
+        function startProjectDrag(e) {
+            e.preventDefault();
+            
+            // Get the project tab and its index
+            const projectTab = e.target.closest('.project-tab');
+            projectStartIndex = Array.from(document.querySelectorAll('.project-tab')).indexOf(projectTab);
+            
+            // Create a clone for dragging
+            draggedProject = projectTab;
+            draggedProjectClone = projectTab.cloneNode(true);
+            draggedProjectClone.classList.add('project-dragging');
+            
+            // Calculate mouse offset
+            const rect = projectTab.getBoundingClientRect();
+            projectMouseOffsetX = e.clientX - rect.left;
+            projectMouseOffsetY = e.clientY - rect.top;
+            
+            // Set initial position of clone
+            draggedProjectClone.style.width = `${rect.width}px`;
+            draggedProjectClone.style.height = `${rect.height}px`;
+            draggedProjectClone.style.position = 'fixed';
+            draggedProjectClone.style.zIndex = '1000';
+            draggedProjectClone.style.pointerEvents = 'none';
+            draggedProjectClone.style.opacity = '0.8';
+            updateProjectDragPosition(e);
+            
+            // Create placeholder
+            projectDropPlaceholder = document.createElement('div');
+            projectDropPlaceholder.className = 'project-drop-placeholder';
+            projectDropPlaceholder.style.width = `${rect.width}px`;
+            projectDropPlaceholder.style.height = `${rect.height}px`;
+            
+            // Add elements to DOM
+            document.body.appendChild(draggedProjectClone);
+            draggedProject.parentNode.insertBefore(projectDropPlaceholder, draggedProject);
+            draggedProject.style.display = 'none';
+            
+            // Add drag event listeners
+            document.addEventListener('mousemove', projectDragMove);
+            document.addEventListener('mouseup', stopProjectDrag);
+        }
+
+        function updateProjectDragPosition(e) {
+            if (!draggedProjectClone) return;
+            draggedProjectClone.style.left = `${e.clientX - projectMouseOffsetX}px`;
+            draggedProjectClone.style.top = `${e.clientY - projectMouseOffsetY}px`;
+            draggedProjectClone.style.transform = 'rotate(1deg)';
+        }
+
+        function projectDragMove(e) {
+            if (!draggedProjectClone) return;
+            
+            updateProjectDragPosition(e);
+            
+            const projectsList = document.querySelector('.projects-list');
+            const projectTabs = Array.from(projectsList.querySelectorAll('.project-tab')).filter(
+                tab => tab !== draggedProject && tab.style.display !== 'none'
+            );
+            
+            if (projectTabs.length === 0) {
+                if (projectDropPlaceholder.parentNode !== projectsList) {
+                    projectsList.appendChild(projectDropPlaceholder);
+                }
+                return;
+            }
+            
+            let closestTab = null;
+            let closestDistance = Infinity;
+            let insertBefore = true;
+            
+            projectTabs.forEach(tab => {
+                const rect = tab.getBoundingClientRect();
+                const tabMiddleX = rect.left + rect.width / 2;
+                const distance = Math.abs(e.clientX - tabMiddleX);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestTab = tab;
+                    insertBefore = e.clientX < tabMiddleX;
+                }
+            });
+            
+            if (closestTab) {
+                if (insertBefore) {
+                    if (projectDropPlaceholder.nextSibling !== closestTab) {
+                        projectsList.insertBefore(projectDropPlaceholder, closestTab);
+                    }
+                } else {
+                    if (projectDropPlaceholder.nextSibling !== closestTab.nextSibling) {
+                        projectsList.insertBefore(projectDropPlaceholder, closestTab.nextSibling);
+                    }
+                }
+            }
+        }
+
+        function stopProjectDrag() {
+            if (!draggedProjectClone) return;
+            
+            const targetIndex = Array.from(document.querySelectorAll('.project-tab, .project-drop-placeholder')).indexOf(projectDropPlaceholder);
+            
+            // Reorder projects array
+            if (targetIndex !== -1 && targetIndex !== projectStartIndex) {
+                const [movedProject] = projects.splice(projectStartIndex, 1);
+                projects.splice(targetIndex, 0, movedProject);
+                saveProjects();
+            }
+            
+            // Clean up
+            draggedProjectClone.style.opacity = '0';
+            setTimeout(() => {
+                if (draggedProjectClone.parentNode) {
+                    document.body.removeChild(draggedProjectClone);
+                }
+                if (projectDropPlaceholder.parentNode) {
+                    projectDropPlaceholder.parentNode.removeChild(projectDropPlaceholder);
+                }
+                
+                draggedProject.style.display = '';
+                draggedProject = null;
+                draggedProjectClone = null;
+                projectDropPlaceholder = null;
+                
+                renderProjects();
+            }, 0);
+            
+            document.removeEventListener('mousemove', projectDragMove);
+            document.removeEventListener('mouseup', stopProjectDrag);
+        }
+
+        // ### Section
+        function initializeSectionDragAndDrop() {
+            document.querySelectorAll('.section').forEach(section => {
+                // Create and add drag handle to each section header
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'section-drag-handle';
+                dragHandle.innerHTML = '⋮⋮';
+                // section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-header').firstChild);
+                section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-actions'))
+
+                // Set up drag events
+                dragHandle.addEventListener('mousedown', startSectionDrag);
+            });
+        }
+
+        function startSectionDrag(e) {
+            e.preventDefault();
+            
+            // Get the section and its index
+            const section = e.target.closest('.section');
+            sectionStartIndex = Array.from(document.querySelectorAll('.section')).indexOf(section);
+            
+            // Create a clone of the section for dragging
+            draggedSection = section;
+            draggedSectionClone = section.cloneNode(true);
+            draggedSectionClone.classList.add('section-dragging');
+            
+            // Calculate the mouse offset within the dragged section
+            const rect = section.getBoundingClientRect();
+            sectionMouseOffsetX = e.clientX - rect.left;
+            sectionMouseOffsetY = e.clientY - rect.top;
+            
+            // Set initial position of the clone
+            draggedSectionClone.style.width = `${rect.width}px`;
+            draggedSectionClone.style.height = `${rect.height}px`;
+            draggedSectionClone.style.position = 'fixed';
+            draggedSectionClone.style.zIndex = '1000';
+            draggedSectionClone.style.pointerEvents = 'none';
+            draggedSectionClone.style.opacity = '0.8';
+            updateSectionDragPosition(e);
+            
+            // Create a placeholder for the drop location
+            sectionDropPlaceholder = document.createElement('div');
+            sectionDropPlaceholder.className = 'section-drop-placeholder';
+            sectionDropPlaceholder.style.width = `${rect.width}px`;
+            sectionDropPlaceholder.style.height = `${rect.height}px`;
+            
+            // Add elements to the DOM
+            document.body.appendChild(draggedSectionClone);
+            draggedSection.parentNode.insertBefore(sectionDropPlaceholder, draggedSection);
+            draggedSection.style.display = 'none';
+            
+            // Add event listeners for dragging
+            document.addEventListener('mousemove', sectionDragMove);
+            document.addEventListener('mouseup', stopSectionDrag);
+        }
+
+        function updateSectionDragPosition(e) {
+            if (!draggedSectionClone) return;
+            draggedSectionClone.style.left = `${e.clientX - sectionMouseOffsetX}px`;
+            draggedSectionClone.style.top = `${e.clientY - sectionMouseOffsetY}px`;
+            draggedSectionClone.style.transform = 'rotate(2deg)';
+        }
+
+        function sectionDragMove(e) {
+            if (!draggedSectionClone) return;
+            
+            updateSectionDragPosition(e);
+            
+            const sectionsContainer = document.getElementById('sectionsContainer');
+            const sections = Array.from(sectionsContainer.querySelectorAll('.section')).filter(
+                section => section !== draggedSection && section.style.display !== 'none'
+            );
+            
+            if (sections.length === 0) {
+                if (sectionDropPlaceholder.parentNode !== sectionsContainer) {
+                    sectionsContainer.appendChild(sectionDropPlaceholder);
+                }
+                return;
+            }
+            
+            let closestSection = null;
+            let closestDistance = Infinity;
+            let insertBefore = true;
+            
+            sections.forEach(section => {
+                const rect = section.getBoundingClientRect();
+                const sectionMiddleX = rect.left + rect.width / 2;
+                const distance = Math.abs(e.clientX - sectionMiddleX);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestSection = section;
+                    insertBefore = e.clientX < sectionMiddleX;
+                }
+            });
+            
+            if (closestSection) {
+                if (insertBefore) {
+                    if (sectionDropPlaceholder.nextSibling !== closestSection) {
+                        sectionsContainer.insertBefore(sectionDropPlaceholder, closestSection);
+                    }
+                } else {
+                    if (sectionDropPlaceholder.nextSibling !== closestSection.nextSibling) {
+                        sectionsContainer.insertBefore(sectionDropPlaceholder, closestSection.nextSibling);
+                    }
+                }
+            }
+        }
+
+        function stopSectionDrag() {
+            if (!draggedSectionClone) return;
+            
+            const targetIndex = Array.from(document.querySelectorAll('.section, .section-drop-placeholder')).indexOf(sectionDropPlaceholder);
+            
+            const currentProject = projects.find(p => p.id === activeProject);
+            
+            // Reorder sections array
+            if (targetIndex !== -1) {
+                const [movedSection] = currentProject.sections.splice(sectionStartIndex, 1);
+                currentProject.sections.splice(targetIndex, 0, movedSection);
+                saveProjects();
+            }
+            
+            // Clean up
+            draggedSectionClone.style.opacity = '0';
+            setTimeout(() => {
+                if (draggedSectionClone.parentNode) {
+                    document.body.removeChild(draggedSectionClone);
+                }
+                if (sectionDropPlaceholder.parentNode) {
+                    sectionDropPlaceholder.parentNode.removeChild(sectionDropPlaceholder);
+                }
+                
+                draggedSection.style.display = '';
+                draggedSection = null;
+                draggedSectionClone = null;
+                sectionDropPlaceholder = null;
+                
+                renderSections();
+            }, 0); // 200
+            
+            document.removeEventListener('mousemove', sectionDragMove);
+            document.removeEventListener('mouseup', stopSectionDrag);
+        }
+
+        // ### Item
+        function initializeDragAndDrop() {
+            document.querySelectorAll('.item').forEach(item => {
+                // Create and add drag handle to each item
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'drag-handle';
+                dragHandle.innerHTML = '⋮⋮';
+                item.insertBefore(dragHandle, item.firstChild);
+                
+                // Set up drag events
+                dragHandle.addEventListener('mousedown', startDrag);
+            });
+        }
+
+        function startDrag(e) {
+            e.preventDefault();
+            
+            // Get the item and its section/item indices
+            const item = e.target.closest('.item');
+            startSectionIndex = parseInt(item.dataset.section);
+            startItemIndex = parseInt(item.dataset.item);
+            
+            // Create a clone of the item for dragging
+            draggedItem = item;
+            draggedItemClone = item.cloneNode(true);
+            draggedItemClone.classList.add('dragging');
+            
+            // Calculate the mouse offset within the dragged item
+            const rect = item.getBoundingClientRect();
+            mouseOffsetX = e.clientX - rect.left;
+            mouseOffsetY = e.clientY - rect.top;
+            
+            // Set initial position of the clone
+            draggedItemClone.style.width = `${rect.width}px`;
+            draggedItemClone.style.height = `${rect.height}px`;
+            draggedItemClone.style.position = 'fixed';
+            draggedItemClone.style.zIndex = '1000';
+            draggedItemClone.style.pointerEvents = 'none';
+            draggedItemClone.style.transition = 'transform 0.1s ease';
+            updateDragPosition(e);
+            
+            // Create a placeholder for the drop location
+            dropPlaceholder = document.createElement('div');
+            dropPlaceholder.className = 'drop-placeholder';
+            dropPlaceholder.style.height = `${rect.height}px`;
+            dropPlaceholder.style.transition = 'all 0.2s ease';
+            
+            // Add elements to the body
+            document.body.appendChild(draggedItemClone);
+            draggedItem.parentNode.insertBefore(dropPlaceholder, draggedItem);
+            draggedItem.style.display = 'none';
+            
+            // Add event listeners for dragging
+            document.addEventListener('mousemove', dragMove);
+            document.addEventListener('mouseup', stopDrag);
+        }
+
+        function findClosestItem(y, section) {
+            // Get all visible items in this section
+            const items = Array.from(section.querySelectorAll('.item')).filter(
+                item => item !== draggedItem && item.style.display !== 'none'
+            );
+            
+            // Find the closest item to the current mouse Y position
+            return items.find(item => {
+                const rect = item.getBoundingClientRect();
+                return y >= rect.top && y <= rect.bottom;
+            });
+        }
+
+        function dragMove(e) {
+            if (!draggedItemClone) return;
+            
+            // Update the position of the dragged clone
+            updateDragPosition(e);
+            
+            // Find target section
+            const targetSection = findTargetSection(e.clientX, e.clientY);
+            if (!targetSection) return;
+            
+            const itemsContainer = targetSection.querySelector('.items');
+            
+            // Get all visible items in this section
+            const items = Array.from(targetSection.querySelectorAll('.item')).filter(
+                item => item !== draggedItem && item.style.display !== 'none'
+            );
+            
+            // If there are no items, just append to the container
+            if (items.length === 0) {
+                if (dropPlaceholder.parentNode !== itemsContainer) {
+                    itemsContainer.appendChild(dropPlaceholder);
+                }
+                return;
+            }
+            
+            // Find the closest item based on mouse position
+            let closestItem = null;
+            let closestDistance = Infinity;
+            let insertBefore = true;
+            
+            items.forEach(item => {
+                const rect = item.getBoundingClientRect();
+                const itemMiddleY = rect.top + rect.height / 2;
+                const distance = Math.abs(e.clientY - itemMiddleY);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestItem = item;
+                    insertBefore = e.clientY < itemMiddleY;
+                }
+            });
+            
+            // Only move the placeholder if we need to
+            if (closestItem) {
+                if (insertBefore) {
+                    if (dropPlaceholder.nextSibling !== closestItem) {
+                        itemsContainer.insertBefore(dropPlaceholder, closestItem);
+                    }
+                } else {
+                    if (dropPlaceholder.nextSibling !== closestItem.nextSibling) {
+                        itemsContainer.insertBefore(dropPlaceholder, closestItem.nextSibling);
+                    }
+                }
+            }
+        }
+
+        function updateDragPosition(e) {
+            if (!draggedItemClone) return;
+            draggedItemClone.style.left = `${e.clientX - mouseOffsetX}px`;
+            draggedItemClone.style.top = `${e.clientY - mouseOffsetY}px`;
+            
+            // Add a slight rotation effect for better visual feedback
+            draggedItemClone.style.transform = 'rotate(2deg)';
+            
+            // Add shadow for depth
+            draggedItemClone.style.boxShadow = '0 5px 15px rgba(0,0,0,0.2)';
+        }
+
+        function findTargetSection(x, y) {
+            // Find the section at the current mouse position
+            const sections = Array.from(document.querySelectorAll('.section'));
+            
+            return sections.find(section => {
+                const rect = section.getBoundingClientRect();
+                return x >= rect.left && x <= rect.right && 
+                    y >= rect.top && y <= rect.bottom;
+            });
+        }
+
+        function stopDrag(e) {
+            if (!draggedItemClone) return;
+            
+            const currentProject = projects.find(p => p.id === activeProject);
+            
+            // Get the target section and position
+            const targetSection = dropPlaceholder.closest('.section');
+            if (targetSection) {
+                const targetSectionIndex = Array.from(document.querySelectorAll('.section')).indexOf(targetSection);
+                const targetItemsContainer = dropPlaceholder.parentNode;
+                const targetItemIndex = Array.from(targetItemsContainer.children).indexOf(dropPlaceholder);
+                
+                // Move the item in our data structure
+                const itemData = currentProject.sections[startSectionIndex].items[startItemIndex];
+                
+                // Remove from original position
+                currentProject.sections[startSectionIndex].items.splice(startItemIndex, 1);
+                
+                // Add to new position
+                currentProject.sections[targetSectionIndex].items.splice(targetItemIndex, 0, itemData);
+                
+                saveProjects();
+            }
+            
+            // Clean up with animation
+            draggedItemClone.style.opacity = '0';
+            draggedItemClone.style.transform = 'scale(0.8)';
+            
+            setTimeout(() => {
+                if (draggedItemClone.parentNode) {
+                    document.body.removeChild(draggedItemClone);
+                }
+                if (dropPlaceholder.parentNode) {
+                    dropPlaceholder.parentNode.removeChild(dropPlaceholder);
+                }
+                
+                draggedItem.style.display = '';
+                draggedItem = null;
+                draggedItemClone = null;
+                dropPlaceholder = null;
+                
+                // Re-render to ensure everything is in sync
+                renderSections();
+            }, 0); // 200: Match the transition duration
+            
+            // Remove event listeners
+            document.removeEventListener('mousemove', dragMove);
+            document.removeEventListener('mouseup', stopDrag);
+        }
+
+// #######################################################################################################################[End] Drag / Drop
+
+
 // #######################################################################################################################[Start] Projects
         function addProject(name) {
             if (!name.trim()) {
@@ -1487,150 +1983,6 @@
                 addProject(e.target.value);
             }
         });
-
-        // Drag Drop
-        function initializeProjectDragAndDrop() {
-            document.querySelectorAll('.project-tab').forEach(project => {
-                // Create and add drag handle to each project tab
-                const dragHandle = document.createElement('div');
-                dragHandle.className = 'project-drag-handle';
-                dragHandle.innerHTML = '⋮';
-                // project.insertBefore(dragHandle, project.firstChild);
-                project.insertBefore(dragHandle, project.querySelector(".project-tab .remove-project"));
-
-                // Set up drag events
-                dragHandle.addEventListener('mousedown', startProjectDrag);
-            });
-        }
-
-        function startProjectDrag(e) {
-            e.preventDefault();
-            
-            // Get the project tab and its index
-            const projectTab = e.target.closest('.project-tab');
-            projectStartIndex = Array.from(document.querySelectorAll('.project-tab')).indexOf(projectTab);
-            
-            // Create a clone for dragging
-            draggedProject = projectTab;
-            draggedProjectClone = projectTab.cloneNode(true);
-            draggedProjectClone.classList.add('project-dragging');
-            
-            // Calculate mouse offset
-            const rect = projectTab.getBoundingClientRect();
-            projectMouseOffsetX = e.clientX - rect.left;
-            projectMouseOffsetY = e.clientY - rect.top;
-            
-            // Set initial position of clone
-            draggedProjectClone.style.width = `${rect.width}px`;
-            draggedProjectClone.style.height = `${rect.height}px`;
-            draggedProjectClone.style.position = 'fixed';
-            draggedProjectClone.style.zIndex = '1000';
-            draggedProjectClone.style.pointerEvents = 'none';
-            draggedProjectClone.style.opacity = '0.8';
-            updateProjectDragPosition(e);
-            
-            // Create placeholder
-            projectDropPlaceholder = document.createElement('div');
-            projectDropPlaceholder.className = 'project-drop-placeholder';
-            projectDropPlaceholder.style.width = `${rect.width}px`;
-            projectDropPlaceholder.style.height = `${rect.height}px`;
-            
-            // Add elements to DOM
-            document.body.appendChild(draggedProjectClone);
-            draggedProject.parentNode.insertBefore(projectDropPlaceholder, draggedProject);
-            draggedProject.style.display = 'none';
-            
-            // Add drag event listeners
-            document.addEventListener('mousemove', projectDragMove);
-            document.addEventListener('mouseup', stopProjectDrag);
-        }
-
-        function updateProjectDragPosition(e) {
-            if (!draggedProjectClone) return;
-            draggedProjectClone.style.left = `${e.clientX - projectMouseOffsetX}px`;
-            draggedProjectClone.style.top = `${e.clientY - projectMouseOffsetY}px`;
-            draggedProjectClone.style.transform = 'rotate(1deg)';
-        }
-
-        function projectDragMove(e) {
-            if (!draggedProjectClone) return;
-            
-            updateProjectDragPosition(e);
-            
-            const projectsList = document.querySelector('.projects-list');
-            const projectTabs = Array.from(projectsList.querySelectorAll('.project-tab')).filter(
-                tab => tab !== draggedProject && tab.style.display !== 'none'
-            );
-            
-            if (projectTabs.length === 0) {
-                if (projectDropPlaceholder.parentNode !== projectsList) {
-                    projectsList.appendChild(projectDropPlaceholder);
-                }
-                return;
-            }
-            
-            let closestTab = null;
-            let closestDistance = Infinity;
-            let insertBefore = true;
-            
-            projectTabs.forEach(tab => {
-                const rect = tab.getBoundingClientRect();
-                const tabMiddleX = rect.left + rect.width / 2;
-                const distance = Math.abs(e.clientX - tabMiddleX);
-                
-                if (distance < closestDistance) {
-                    closestDistance = distance;
-                    closestTab = tab;
-                    insertBefore = e.clientX < tabMiddleX;
-                }
-            });
-            
-            if (closestTab) {
-                if (insertBefore) {
-                    if (projectDropPlaceholder.nextSibling !== closestTab) {
-                        projectsList.insertBefore(projectDropPlaceholder, closestTab);
-                    }
-                } else {
-                    if (projectDropPlaceholder.nextSibling !== closestTab.nextSibling) {
-                        projectsList.insertBefore(projectDropPlaceholder, closestTab.nextSibling);
-                    }
-                }
-            }
-        }
-
-        function stopProjectDrag() {
-            if (!draggedProjectClone) return;
-            
-            const targetIndex = Array.from(document.querySelectorAll('.project-tab, .project-drop-placeholder')).indexOf(projectDropPlaceholder);
-            
-            // Reorder projects array
-            if (targetIndex !== -1 && targetIndex !== projectStartIndex) {
-                const [movedProject] = projects.splice(projectStartIndex, 1);
-                projects.splice(targetIndex, 0, movedProject);
-                saveProjects();
-            }
-            
-            // Clean up
-            draggedProjectClone.style.opacity = '0';
-            setTimeout(() => {
-                if (draggedProjectClone.parentNode) {
-                    document.body.removeChild(draggedProjectClone);
-                }
-                if (projectDropPlaceholder.parentNode) {
-                    projectDropPlaceholder.parentNode.removeChild(projectDropPlaceholder);
-                }
-                
-                draggedProject.style.display = '';
-                draggedProject = null;
-                draggedProjectClone = null;
-                projectDropPlaceholder = null;
-                
-                renderProjects();
-            }, 0);
-            
-            document.removeEventListener('mousemove', projectDragMove);
-            document.removeEventListener('mouseup', stopProjectDrag);
-        }
 // #######################################################################################################################[End] Projects
 
 
@@ -1906,151 +2258,6 @@
                 }
             }
         }
-
-        function initializeSectionDragAndDrop() {
-            document.querySelectorAll('.section').forEach(section => {
-                // Create and add drag handle to each section header
-                const dragHandle = document.createElement('div');
-                dragHandle.className = 'section-drag-handle';
-                dragHandle.innerHTML = '⋮⋮';
-                // section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-header').firstChild);
-                section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-actions'))
-
-                // Set up drag events
-                dragHandle.addEventListener('mousedown', startSectionDrag);
-            });
-        }
-
-        function startSectionDrag(e) {
-            e.preventDefault();
-            
-            // Get the section and its index
-            const section = e.target.closest('.section');
-            sectionStartIndex = Array.from(document.querySelectorAll('.section')).indexOf(section);
-            
-            // Create a clone of the section for dragging
-            draggedSection = section;
-            draggedSectionClone = section.cloneNode(true);
-            draggedSectionClone.classList.add('section-dragging');
-            
-            // Calculate the mouse offset within the dragged section
-            const rect = section.getBoundingClientRect();
-            sectionMouseOffsetX = e.clientX - rect.left;
-            sectionMouseOffsetY = e.clientY - rect.top;
-            
-            // Set initial position of the clone
-            draggedSectionClone.style.width = `${rect.width}px`;
-            draggedSectionClone.style.height = `${rect.height}px`;
-            draggedSectionClone.style.position = 'fixed';
-            draggedSectionClone.style.zIndex = '1000';
-            draggedSectionClone.style.pointerEvents = 'none';
-            draggedSectionClone.style.opacity = '0.8';
-            updateSectionDragPosition(e);
-            
-            // Create a placeholder for the drop location
-            sectionDropPlaceholder = document.createElement('div');
-            sectionDropPlaceholder.className = 'section-drop-placeholder';
-            sectionDropPlaceholder.style.width = `${rect.width}px`;
-            sectionDropPlaceholder.style.height = `${rect.height}px`;
-            
-            // Add elements to the DOM
-            document.body.appendChild(draggedSectionClone);
-            draggedSection.parentNode.insertBefore(sectionDropPlaceholder, draggedSection);
-            draggedSection.style.display = 'none';
-            
-            // Add event listeners for dragging
-            document.addEventListener('mousemove', sectionDragMove);
-            document.addEventListener('mouseup', stopSectionDrag);
-        }
-
-        function updateSectionDragPosition(e) {
-            if (!draggedSectionClone) return;
-            draggedSectionClone.style.left = `${e.clientX - sectionMouseOffsetX}px`;
-            draggedSectionClone.style.top = `${e.clientY - sectionMouseOffsetY}px`;
-            draggedSectionClone.style.transform = 'rotate(2deg)';
-        }
-
-        function sectionDragMove(e) {
-            if (!draggedSectionClone) return;
-            
-            updateSectionDragPosition(e);
-            
-            const sectionsContainer = document.getElementById('sectionsContainer');
-            const sections = Array.from(sectionsContainer.querySelectorAll('.section')).filter(
-                section => section !== draggedSection && section.style.display !== 'none'
-            );
-            
-            if (sections.length === 0) {
-                if (sectionDropPlaceholder.parentNode !== sectionsContainer) {
-                    sectionsContainer.appendChild(sectionDropPlaceholder);
-                }
-                return;
-            }
-            
-            let closestSection = null;
-            let closestDistance = Infinity;
-            let insertBefore = true;
-            
-            sections.forEach(section => {
-                const rect = section.getBoundingClientRect();
-                const sectionMiddleX = rect.left + rect.width / 2;
-                const distance = Math.abs(e.clientX - sectionMiddleX);
-                
-                if (distance < closestDistance) {
-                    closestDistance = distance;
-                    closestSection = section;
-                    insertBefore = e.clientX < sectionMiddleX;
-                }
-            });
-            
-            if (closestSection) {
-                if (insertBefore) {
-                    if (sectionDropPlaceholder.nextSibling !== closestSection) {
-                        sectionsContainer.insertBefore(sectionDropPlaceholder, closestSection);
-                    }
-                } else {
-                    if (sectionDropPlaceholder.nextSibling !== closestSection.nextSibling) {
-                        sectionsContainer.insertBefore(sectionDropPlaceholder, closestSection.nextSibling);
-                    }
-                }
-            }
-        }
-
-        function stopSectionDrag() {
-            if (!draggedSectionClone) return;
-            
-            const targetIndex = Array.from(document.querySelectorAll('.section, .section-drop-placeholder')).indexOf(sectionDropPlaceholder);
-            
-            const currentProject = projects.find(p => p.id === activeProject);
-            
-            // Reorder sections array
-            if (targetIndex !== -1) {
-                const [movedSection] = currentProject.sections.splice(sectionStartIndex, 1);
-                currentProject.sections.splice(targetIndex, 0, movedSection);
-                saveProjects();
-            }
-            
-            // Clean up
-            draggedSectionClone.style.opacity = '0';
-            setTimeout(() => {
-                if (draggedSectionClone.parentNode) {
-                    document.body.removeChild(draggedSectionClone);
-                }
-                if (sectionDropPlaceholder.parentNode) {
-                    sectionDropPlaceholder.parentNode.removeChild(sectionDropPlaceholder);
-                }
-                
-                draggedSection.style.display = '';
-                draggedSection = null;
-                draggedSectionClone = null;
-                sectionDropPlaceholder = null;
-                
-                renderSections();
-            }, 0); // 200
-            
-            document.removeEventListener('mousemove', sectionDragMove);
-            document.removeEventListener('mouseup', stopSectionDrag);
-        }
 // #######################################################################################################################[End] Section
 
 
@@ -2093,204 +2300,6 @@
 
             saveProjects();
             renderSections();
-        }
-
-        function initializeDragAndDrop() {
-            document.querySelectorAll('.item').forEach(item => {
-                // Create and add drag handle to each item
-                const dragHandle = document.createElement('div');
-                dragHandle.className = 'drag-handle';
-                dragHandle.innerHTML = '⋮⋮';
-                item.insertBefore(dragHandle, item.firstChild);
-                
-                // Set up drag events
-                dragHandle.addEventListener('mousedown', startDrag);
-            });
-        }
-
-        function startDrag(e) {
-            e.preventDefault();
-            
-            // Get the item and its section/item indices
-            const item = e.target.closest('.item');
-            startSectionIndex = parseInt(item.dataset.section);
-            startItemIndex = parseInt(item.dataset.item);
-            
-            // Create a clone of the item for dragging
-            draggedItem = item;
-            draggedItemClone = item.cloneNode(true);
-            draggedItemClone.classList.add('dragging');
-            
-            // Calculate the mouse offset within the dragged item
-            const rect = item.getBoundingClientRect();
-            mouseOffsetX = e.clientX - rect.left;
-            mouseOffsetY = e.clientY - rect.top;
-            
-            // Set initial position of the clone
-            draggedItemClone.style.width = `${rect.width}px`;
-            draggedItemClone.style.height = `${rect.height}px`;
-            draggedItemClone.style.position = 'fixed';
-            draggedItemClone.style.zIndex = '1000';
-            draggedItemClone.style.pointerEvents = 'none';
-            draggedItemClone.style.transition = 'transform 0.1s ease';
-            updateDragPosition(e);
-            
-            // Create a placeholder for the drop location
-            dropPlaceholder = document.createElement('div');
-            dropPlaceholder.className = 'drop-placeholder';
-            dropPlaceholder.style.height = `${rect.height}px`;
-            dropPlaceholder.style.transition = 'all 0.2s ease';
-            
-            // Add elements to the body
-            document.body.appendChild(draggedItemClone);
-            draggedItem.parentNode.insertBefore(dropPlaceholder, draggedItem);
-            draggedItem.style.display = 'none';
-            
-            // Add event listeners for dragging
-            document.addEventListener('mousemove', dragMove);
-            document.addEventListener('mouseup', stopDrag);
-        }
-
-        function findClosestItem(y, section) {
-            // Get all visible items in this section
-            const items = Array.from(section.querySelectorAll('.item')).filter(
-                item => item !== draggedItem && item.style.display !== 'none'
-            );
-            
-            // Find the closest item to the current mouse Y position
-            return items.find(item => {
-                const rect = item.getBoundingClientRect();
-                return y >= rect.top && y <= rect.bottom;
-            });
-        }
-
-        function dragMove(e) {
-            if (!draggedItemClone) return;
-            
-            // Update the position of the dragged clone
-            updateDragPosition(e);
-            
-            // Find target section
-            const targetSection = findTargetSection(e.clientX, e.clientY);
-            if (!targetSection) return;
-            
-            const itemsContainer = targetSection.querySelector('.items');
-            
-            // Get all visible items in this section
-            const items = Array.from(targetSection.querySelectorAll('.item')).filter(
-                item => item !== draggedItem && item.style.display !== 'none'
-            );
-            
-            // If there are no items, just append to the container
-            if (items.length === 0) {
-                if (dropPlaceholder.parentNode !== itemsContainer) {
-                    itemsContainer.appendChild(dropPlaceholder);
-                }
-                return;
-            }
-            
-            // Find the closest item based on mouse position
-            let closestItem = null;
-            let closestDistance = Infinity;
-            let insertBefore = true;
-            
-            items.forEach(item => {
-                const rect = item.getBoundingClientRect();
-                const itemMiddleY = rect.top + rect.height / 2;
-                const distance = Math.abs(e.clientY - itemMiddleY);
-                
-                if (distance < closestDistance) {
-                    closestDistance = distance;
-                    closestItem = item;
-                    insertBefore = e.clientY < itemMiddleY;
-                }
-            });
-            
-            // Only move the placeholder if we need to
-            if (closestItem) {
-                if (insertBefore) {
-                    if (dropPlaceholder.nextSibling !== closestItem) {
-                        itemsContainer.insertBefore(dropPlaceholder, closestItem);
-                    }
-                } else {
-                    if (dropPlaceholder.nextSibling !== closestItem.nextSibling) {
-                        itemsContainer.insertBefore(dropPlaceholder, closestItem.nextSibling);
-                    }
-                }
-            }
-        }
-
-        function updateDragPosition(e) {
-            if (!draggedItemClone) return;
-            draggedItemClone.style.left = `${e.clientX - mouseOffsetX}px`;
-            draggedItemClone.style.top = `${e.clientY - mouseOffsetY}px`;
-            
-            // Add a slight rotation effect for better visual feedback
-            draggedItemClone.style.transform = 'rotate(2deg)';
-            
-            // Add shadow for depth
-            draggedItemClone.style.boxShadow = '0 5px 15px rgba(0,0,0,0.2)';
-        }
-
-        function findTargetSection(x, y) {
-            // Find the section at the current mouse position
-            const sections = Array.from(document.querySelectorAll('.section'));
-            
-            return sections.find(section => {
-                const rect = section.getBoundingClientRect();
-                return x >= rect.left && x <= rect.right && 
-                    y >= rect.top && y <= rect.bottom;
-            });
-        }
-
-        function stopDrag(e) {
-            if (!draggedItemClone) return;
-            
-            const currentProject = projects.find(p => p.id === activeProject);
-            
-            // Get the target section and position
-            const targetSection = dropPlaceholder.closest('.section');
-            if (targetSection) {
-                const targetSectionIndex = Array.from(document.querySelectorAll('.section')).indexOf(targetSection);
-                const targetItemsContainer = dropPlaceholder.parentNode;
-                const targetItemIndex = Array.from(targetItemsContainer.children).indexOf(dropPlaceholder);
-                
-                // Move the item in our data structure
-                const itemData = currentProject.sections[startSectionIndex].items[startItemIndex];
-                
-                // Remove from original position
-                currentProject.sections[startSectionIndex].items.splice(startItemIndex, 1);
-                
-                // Add to new position
-                currentProject.sections[targetSectionIndex].items.splice(targetItemIndex, 0, itemData);
-                
-                saveProjects();
-            }
-            
-            // Clean up with animation
-            draggedItemClone.style.opacity = '0';
-            draggedItemClone.style.transform = 'scale(0.8)';
-            
-            setTimeout(() => {
-                if (draggedItemClone.parentNode) {
-                    document.body.removeChild(draggedItemClone);
-                }
-                if (dropPlaceholder.parentNode) {
-                    dropPlaceholder.parentNode.removeChild(dropPlaceholder);
-                }
-                
-                draggedItem.style.display = '';
-                draggedItem = null;
-                draggedItemClone = null;
-                dropPlaceholder = null;
-                
-                // Re-render to ensure everything is in sync
-                renderSections();
-            }, 0); // 200: Match the transition duration
-            
-            // Remove event listeners
-            document.removeEventListener('mousemove', dragMove);
-            document.removeEventListener('mouseup', stopDrag);
         }
 // #######################################################################################################################[End] Item
 
@@ -2395,12 +2404,6 @@
             
             // Remove escape key listener
             document.removeEventListener('keydown', handleEscapeKey);
-        }
-
-        function handleEscapeKey(e) {
-            if (e.key === 'Escape') {
-                closeImageModal();
-            }
         }
 
         async function addImage(sectionIndex, itemIndex) {
@@ -2578,6 +2581,12 @@
             // Persian, Hebrew, Arabic
             const rtlChars = /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
             return rtlChars.test(text);
+        }
+
+        function handleEscapeKey(e) {
+            if (e.key === 'Escape') {
+                closeImageModal();
+            }
         }
 // #######################################################################################################################[End] Helper
 

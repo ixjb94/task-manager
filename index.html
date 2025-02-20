@@ -2432,14 +2432,15 @@
 
                 const currentProject = projects.find(p => p.id === activeProject);
                 const imageId = currentProject.sections[sectionIndex].items[itemIndex].images[imageIndex];
+                
+                // Remove from sections data
+                currentProject.sections[sectionIndex].items[itemIndex].images.splice(imageIndex, 1);
 
                 // Remove from IndexedDB
                 const transaction = db.transaction(["images"], "readwrite");
                 const store = transaction.objectStore("images");
                 store.delete(parseInt(imageId));
 
-                // Remove from sections data
-                currentProject.sections[sectionIndex].items[itemIndex].images.splice(imageIndex, 1);
                 saveProjects();
                 renderSections();
             } catch (error) {

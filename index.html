@@ -2435,13 +2435,13 @@
                 
                 // Remove from sections data
                 currentProject.sections[sectionIndex].items[itemIndex].images.splice(imageIndex, 1);
+                saveProjects();
 
                 // Remove from IndexedDB
                 const transaction = db.transaction(["images"], "readwrite");
                 const store = transaction.objectStore("images");
                 store.delete(parseInt(imageId));
 
-                saveProjects();
                 renderSections();
             } catch (error) {
                 console.error('Failed to removeImage:', error);

@@ -2426,21 +2426,25 @@
         }
 
         function removeImage(sectionIndex, itemIndex, imageIndex) {
-            const CONFIRM = confirm("Are you sure?");
-            if (!CONFIRM) return false;
+            try {
+                const CONFIRM = confirm("Are you sure?");
+                if (!CONFIRM) return false;
 
-            const currentProject = projects.find(p => p.id === activeProject);
-            const imageId = currentProject.sections[sectionIndex].items[itemIndex].images[imageIndex];
+                const currentProject = projects.find(p => p.id === activeProject);
+                const imageId = currentProject.sections[sectionIndex].items[itemIndex].images[imageIndex];
 
-            // Remove from IndexedDB
-            const transaction = db.transaction(["images"], "readwrite");
-            const store = transaction.objectStore("images");
-            store.delete(parseInt(imageId));
+                // Remove from IndexedDB
+                const transaction = db.transaction(["images"], "readwrite");
+                const store = transaction.objectStore("images");
+                store.delete(parseInt(imageId));
 
-            // Remove from sections data
-            currentProject.sections[sectionIndex].items[itemIndex].images.splice(imageIndex, 1);
-            saveProjects();
-            renderSections();
+                // Remove from sections data
+                currentProject.sections[sectionIndex].items[itemIndex].images.splice(imageIndex, 1);
+                saveProjects();
+                renderSections();
+            } catch (error) {
+                console.error('Failed to removeImage:', error);
+            }
         }
 
         function handleImageAttachment(sectionIndex, itemIndex) {

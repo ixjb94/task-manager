@@ -27,3 +27,8 @@ Then run the `index.html` file
 
 ### Images
 ![Image](https://raw.githubusercontent.com/ixjb94/task-manager/master/img15.png "Image")
+
+### Favicon
+```
+https://icons8.com/icon/irrKgrdpXeAi/project-management
+```

@@ -868,6 +868,20 @@
             line-height: 1.4;
         }
         /* ### Modal Style */
+
+        .reset button {
+            background: rgb(238, 12, 12);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2sease;
+        }
+        .reset button:hover {
+            background: rgb(192, 11, 11);
+            transition: background-color 0.2sease;
+        }
     </style>
     <style id="fonts"></style>
 </head>
@@ -922,6 +936,10 @@
                     <input type="text" id="projectName" placeholder="New project name">
                     <button onclick="addProject(document.getElementById('projectName').value)">Add Project</button>
                 </div>
+
+                <div class="reset">
+                    <button onclick="onReset()">Reset</button>
+                </div>
             </div>
         </details>
     </div>
@@ -942,8 +960,8 @@
             { background: '#ffffff', color: 'black', name: 'White' },
         ];
         let db;
-        const dbName = "SectionManagerDB";
-        const dbVersion = 7;
+        const dbName = "Test";
+        const dbVersion = 1;
 
         let mediaRecorder = null;
         let audioChunks = [];
@@ -1021,36 +1039,99 @@
                         for (let itemIndex = 0; itemIndex < section.items.length; itemIndex++) {
                             const item = section.items[itemIndex];
                             
+                            // Handle text content
+                            if (item.textId && item.textId.toString().trim() !== '') {
+                                try {
+                                    const textContent = await getFromIndexedDB('textContent', parseInt(item.textId));
+                                    if (textContent && textContent.content) {  // Changed from .data to .content
+                                        const textId = `text_${projectIndex}_${sectionIndex}_${itemIndex}`;
+                                        zip.file(`media/${textId}.txt`, textContent.content);
+                                        item.textId = textId;
+                                    }
+                                } catch (err) {
+                                    console.warn('Failed to process text content:', err);
+                                    item.textId = ''; // Reset invalid textId
+                                }
+                            }
+
+                            // Handle files
+                            if (item.files && item.files.length > 0) {
+                                item.files = await Promise.all(item.files.map(async (fileInfo, fileIndex) => {
+                                    try {
+                                        const fileId = typeof fileInfo === 'object' ? parseInt(fileInfo.id) : parseInt(fileInfo);
+                                        const file = await getFromIndexedDB('files', fileId);
+                                        if (file && file.content) {  // Changed from .data to .content
+                                            const newFileId = `file_${projectIndex}_${sectionIndex}_${itemIndex}_${fileIndex}`;
+                                            const fileName = (typeof fileInfo === 'object' && fileInfo.name) ? 
+                                                        fileInfo.name : 
+                                                        (file.name || 'unknown_file');
+                                            
+                                            mediaDir.file(`${newFileId}_${fileName}`, file.content);
+                                            return {
+                                                id: newFileId,
+                                                name: fileName
+                                            };
+                                        }
+                                    } catch (err) {
+                                        console.warn('Failed to process file:', err);
+                                    }
+                                    return null;
+                                }));
+                                item.files = item.files.filter(fileInfo => fileInfo !== null);
+                            }
+
                             // Handle images
                             if (item.images && item.images.length > 0) {
-                                item.images = await Promise.all(item.images.map(async (imageData, imageIndex) => {
-                                    const imageId = `image_${projectIndex}_${sectionIndex}_${itemIndex}_${imageIndex}`;
-                                    const imageBlob = await base64ToBlob(imageData);
-                                    mediaDir.file(`${imageId}.png`, imageBlob);
-                                    return imageId;
+                                item.images = await Promise.all(item.images.map(async (imageId, imageIndex) => {
+                                    try {
+                                        const image = await getFromIndexedDB('images', parseInt(imageId));
+                                        if (image && image.data) {  // Keep .data for images
+                                            const newImageId = `image_${projectIndex}_${sectionIndex}_${itemIndex}_${imageIndex}`;
+                                            mediaDir.file(`${newImageId}.png`, image.data);
+                                            return newImageId;
+                                        }
+                                    } catch (err) {
+                                        console.warn('Failed to process image:', err);
+                                    }
+                                    return null;
                                 }));
+                                item.images = item.images.filter(id => id !== null);
                             }
                             
                             // Handle audio recordings
                             if (item.audios && item.audios.length > 0) {
-                                item.audios = await Promise.all(item.audios.map(async (audioData, audioIndex) => {
-                                    const audioId = `audio_${projectIndex}_${sectionIndex}_${itemIndex}_${audioIndex}`;
-                                    const audioBlob = await base64ToBlob(audioData);
-                                    mediaDir.file(`${audioId}.wav`, audioBlob);
-                                    return audioId;
+                                item.audios = await Promise.all(item.audios.map(async (audioId, audioIndex) => {
+                                    try {
+                                        const audio = await getFromIndexedDB('audios', parseInt(audioId));
+                                        if (audio && audio.data) {  // Keep .data for audios
+                                            const newAudioId = `audio_${projectIndex}_${sectionIndex}_${itemIndex}_${audioIndex}`;
+                                            mediaDir.file(`${newAudioId}.wav`, audio.data);
+                                            return newAudioId;
+                                        }
+                                    } catch (err) {
+                                        console.warn('Failed to process audio:', err);
+                                    }
+                                    return null;
                                 }));
+                                item.audios = item.audios.filter(id => id !== null);
                             }
                             
-                            // Handle videos from IndexedDB
+                            // Handle videos
                             if (item.videos && item.videos.length > 0) {
-                                await Promise.all(item.videos.map(async (videoId, videoIndex) => {
-                                    const video = await getVideoFromIndexedDB(parseInt(videoId));
-                                    if (video && video.data) {
-                                        const newVideoId = `video_${projectIndex}_${sectionIndex}_${itemIndex}_${videoIndex}`;
-                                        mediaDir.file(`${newVideoId}.webm`, video.data);
-                                        item.videos[videoIndex] = newVideoId;
+                                item.videos = await Promise.all(item.videos.map(async (videoId, videoIndex) => {
+                                    try {
+                                        const video = await getFromIndexedDB('videos', parseInt(videoId));
+                                        if (video && video.data) {  // Keep .data for videos
+                                            const newVideoId = `video_${projectIndex}_${sectionIndex}_${itemIndex}_${videoIndex}`;
+                                            mediaDir.file(`${newVideoId}.webm`, video.data);
+                                            return newVideoId;
+                                        }
+                                    } catch (err) {
+                                        console.warn('Failed to process video:', err);
                                     }
+                                    return null;
                                 }));
+                                item.videos = item.videos.filter(id => id !== null);
                             }
                         }
                     }
@@ -1088,8 +1169,8 @@
                 const dataFile = await zip.file("data.json").async("text");
                 const importedData = JSON.parse(dataFile);
                 
-                // Clear existing videos from IndexedDB
-                await clearVideosFromIndexedDB();
+                // Clear existing data from IndexedDB
+                await clearAllIndexedDB();
                 
                 // Process each project's sections and items
                 for (let projectIndex = 0; projectIndex < importedData.projects.length; projectIndex++) {
@@ -1101,17 +1182,28 @@
                         for (let itemIndex = 0; itemIndex < section.items.length; itemIndex++) {
                             const item = section.items[itemIndex];
                             
+                            // Handle text content
+                            if (item.textId) {
+                                const textFile = zip.file(`media/${item.textId}.txt`);
+                                if (textFile) {
+                                    const textData = await textFile.async("text");
+                                    const newTextId = await saveToIndexedDB('textContent', { content: textData });
+                                    item.textId = newTextId.toString();
+                                }
+                            }
+
                             // Handle images
                             if (item.images && item.images.length > 0) {
                                 item.images = await Promise.all(item.images.map(async (imageId) => {
                                     const imageFile = zip.file(`media/${imageId}.png`);
                                     if (imageFile) {
                                         const blob = await imageFile.async("blob");
-                                        return await blobToBase64(blob);
+                                        const newImageId = await saveToIndexedDB('images', { data: blob });
+                                        return newImageId.toString();
                                     }
                                     return null;
                                 }));
-                                item.images = item.images.filter(img => img !== null);
+                                item.images = item.images.filter(id => id !== null);
                             }
                             
                             // Handle audio recordings
@@ -1120,11 +1212,12 @@
                                     const audioFile = zip.file(`media/${audioId}.wav`);
                                     if (audioFile) {
                                         const blob = await audioFile.async("blob");
-                                        return await blobToBase64(blob);
+                                        const newAudioId = await saveToIndexedDB('audios', { data: blob });
+                                        return newAudioId.toString();
                                     }
                                     return null;
                                 }));
-                                item.audios = item.audios.filter(audio => audio !== null);
+                                item.audios = item.audios.filter(id => id !== null);
                             }
                             
                             // Handle videos
@@ -1133,12 +1226,36 @@
                                     const videoFile = zip.file(`media/${videoId}.webm`);
                                     if (videoFile) {
                                         const blob = await videoFile.async("blob");
-                                        const newVideoId = await saveVideoToIndexedDB(blob);
+                                        const newVideoId = await saveToIndexedDB('videos', { data: blob });
                                         return newVideoId.toString();
                                     }
                                     return null;
                                 }));
-                                item.videos = item.videos.filter(video => video !== null);
+                                item.videos = item.videos.filter(id => id !== null);
+                            }
+
+                            // Handle files
+                            if (item.files && item.files.length > 0) {
+                                item.files = await Promise.all(item.files.map(async (fileInfo) => {
+                                    const fileFile = zip.file(`media/${fileInfo.id}_${fileInfo.name}`);
+                                    if (fileFile) {
+                                        const blob = await fileFile.async("blob");
+                                        const content = await readFileContent(blob);
+                                        const newFileId = await saveFileToIndexedDB({ 
+                                            name: fileInfo.name,
+                                            content,
+                                            type: 'text/plain',
+                                            timestamp: new Date().getTime()
+                                        });
+
+                                        return {
+                                            id: newFileId.toString(),
+                                            name: fileInfo.name
+                                        };
+                                    }
+                                    return null;
+                                }));
+                                item.files = item.files.filter(id => id !== null);
                             }
                         }
                     }
@@ -1177,6 +1294,60 @@
                 request.onsuccess = () => resolve();
                 request.onerror = () => reject(request.error);
             });
+        }
+
+        async function getFromIndexedDB(storeName, id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], "readonly");
+                const store = transaction.objectStore(storeName);
+                const request = store.get(id);
+                
+                request.onsuccess = () => {
+                    resolve(request.result);
+                };
+                request.onerror = () => {
+                    reject(request.error);
+                };
+            });
+        }
+
+        async function debugIndexedDB(storeName) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], "readonly");
+                const store = transaction.objectStore(storeName);
+                const request = store.getAll();
+                
+                request.onsuccess = () => {
+                    console.log(`All ${storeName} contents:`, request.result);
+                    resolve(request.result);
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function saveToIndexedDB(storeName, data) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], "readwrite");
+                const store = transaction.objectStore(storeName);
+                const request = store.add(data);
+                
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function clearAllIndexedDB() {
+            const stores = ['videos', 'images', 'files', 'audios', 'textContent'];
+            return Promise.all(stores.map(storeName => {
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction([storeName], "readwrite");
+                    const store = transaction.objectStore(storeName);
+                    const request = store.clear();
+                    
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            }));
         }
 // #######################################################################################################################[End] Export and Import
 
@@ -1947,7 +2118,6 @@
                 });
             });
             
-            // Add this at the end of the function:
             initializeProjectDragAndDrop();
         }
         
@@ -2032,18 +2202,20 @@
             renderSections();
         }
 
-        function renderSections() {
+        async function renderSections() {
             const currentProject = projects.find(p => p.id === activeProject);
             const container = document.getElementById('sectionsContainer');
             container.innerHTML = '';
 
-            currentProject.sections.forEach((section, sectionIndex) => {
+            for (const [sectionIndex, section] of currentProject.sections.entries()) {
                 const sectionElement = document.createElement('div');
                 sectionElement.className = 'section';
                 if (section.width) {
                     sectionElement.style.width = `${section.width}px`;
                 }
-                sectionElement.innerHTML = `
+
+                // Create the section header HTML
+                const headerHTML = `
                     <div class="section-header">
                         <div class="section-title" onclick="startEditingTitle(${sectionIndex}, this)">${section.title}</div>
                         <div class="section-actions">
@@ -2051,126 +2223,160 @@
                             <button class="remove-item" onclick="removeSection(${sectionIndex})">x</button>
                         </div>
                     </div>
-                    <div class="items">
-                        ${section.items.map((item, itemIndex) => `
-                            <div class="item" data-section="${sectionIndex}"
-                                data-item="${itemIndex}"
-                                ${item.colorScheme !== undefined ? 
-                                `style="background-color: ${colorSchemes[item.colorScheme].background}; color: ${colorSchemes[item.colorScheme].color};" 
-                                data-color-scheme="${item.colorScheme}"` : 
-                                ''}
-                            >
-                                <button class="remove-btn" onclick="removeItem(${sectionIndex}, ${itemIndex})">×</button>
-                                <textarea
-                                    name="NAME_${sectionIndex}_${itemIndex}"
-                                    class="item-input ${isRTL(item.text || '') ? 'rtl' : 'ltr'}"
-                                    oninput="autoResize(this)"
-                                    onchange="updateItemText(${sectionIndex}, ${itemIndex}, this.value)"
-                                    ${item.colorScheme !== undefined ? 
-                                        `style="background-color: ${colorSchemes[item.colorScheme].background}; color: ${colorSchemes[item.colorScheme].color};"` : 
-                                    ''}
-                                    placeholder="Text..."
-                                >${item.text || ''}</textarea>
-                                
-                                <div class="item-images">
-                                    ${item.images ? item.images.map((imageId, imageIndex) => `
-                                        <div class="item-image-container">
-                                            <img 
-                                                data-image-id="${imageId}" 
-                                                alt="Item image" 
-                                                onclick="openImageModal(this.src)">
-                                            <button class="remove-btn" onclick="removeImage(${sectionIndex}, ${itemIndex}, ${imageIndex})">×</button>
-                                        </div>
-                                    `).join('') : ''}
-                                </div>
-                                
-                                <div class="item-audios">
-                                    ${item.audios ? item.audios.map((audioId, audioIndex) => `
-                                        <div class="item-audio-container" 
-                                            data-audio-id="${audioId}"
-                                            onclick="openAudioModal('')">
-                                            <span>🎵 Recording ${audioIndex + 1}</span>
-                                            <button class="remove-btn" onclick="removeAudio(${sectionIndex}, ${itemIndex}, ${audioIndex})">×</button>
-                                        </div>
-                                    `).join('') : ''}
-                                </div>
-
-                                <div class="item-files">
-                                    ${item.files ? item.files.map((file, fileIndex) => `
-                                        <div class="item-file-container" 
-                                            onclick="openFileModal(${file.id}, '${file.name}')"
-                                            data-section="${sectionIndex}" 
-                                            data-item="${itemIndex}"
-                                            data-file="${fileIndex}">
-                                            <span class="file-icon">📄</span>
-                                            <span>${file.name}</span>
-                                            <button class="remove-btn" onclick="event.stopPropagation(); removeFile(${sectionIndex}, ${itemIndex}, ${fileIndex})">×</button>
-                                        </div>
-                                    `).join('') : ''}
-                                </div>
-
-                                <div class="item-videos">
-                                    ${item.videos ? item.videos.map((videoId, videoIndex) => `
-                                    <div class="item-video-container">
-                                        <video 
-                                            class="item-video" 
-                                            data-video-id="${videoId}"
-                                            onclick="event.stopPropagation(); openVideoModal(this.src)"
-                                        ></video>
-                                        <button class="remove-btn" onclick="event.stopPropagation(); removeVideo(${sectionIndex}, ${itemIndex}, ${videoIndex})">×</button>
-                                    </div>
-                                `).join('') : ''}
-                                </div>
-                                
-                                <div class="item-buttons">
-                                    <button class="attach-file-button" onclick="handleFileAttachment(${sectionIndex}, ${itemIndex})">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M43.246 466.142c-58.43-60.289-57.341-157.511 1.386-217.581L254.392 34c44.316-45.332 116.351-45.336 160.671 0 43.89 44.894 43.943 117.329 0 162.276L232.214 383.128c-29.855 30.537-78.633 30.111-107.982-.998-28.275-29.97-27.368-77.473 1.452-106.953l143.743-146.835c6.182-6.314 16.312-6.422 22.626-.241l22.861 22.379c6.315 6.182 6.422 16.312.241 22.626L171.427 319.927c-4.932 5.045-5.236 13.428-.648 18.292 4.372 4.634 11.245 4.711 15.688.165l182.849-186.851c19.613-20.062 19.613-52.725-.011-72.798-19.189-19.627-49.957-19.637-69.154 0L90.39 293.295c-34.763 35.56-35.299 93.12-1.191 128.313 34.01 35.093 88.985 35.137 123.058.286l172.06-175.999c6.177-6.319 16.307-6.433 22.626-.256l22.877 22.364c6.319 6.177 6.434 16.307.256 22.626l-172.06 175.998c-59.576 60.938-155.943 60.216-214.77-.485z"/></svg>
-                                    </button>
-                                    <button class="attach-image-button" onclick="handleImageAttachment(${sectionIndex}, ${itemIndex})">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M369.9 97.9L286 14C277 5 264.8-.1 252.1-.1H48C21.5 0 0 21.5 0 48v416c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V131.9c0-12.7-5.1-25-14.1-34zM332.1 128H256V51.9l76.1 76.1zM48 464V48h160v104c0 13.3 10.7 24 24 24h104v288H48zm32-48h224V288l-23.5-23.5c-4.7-4.7-12.3-4.7-17 0L176 352l-39.5-39.5c-4.7-4.7-12.3-4.7-17 0L80 352v64zm48-240c-26.5 0-48 21.5-48 48s21.5 48 48 48 48-21.5 48-48-21.5-48-48-48z"/></svg>
-                                    </button>
-                                    <button class="record-button" onclick="startAudioRecording(${sectionIndex}, ${itemIndex})">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 352 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M176 352c53.02 0 96-42.98 96-96V96c0-53.02-42.98-96-96-96S80 42.98 80 96v160c0 53.02 42.98 96 96 96zm160-160h-16c-8.84 0-16 7.16-16 16v48c0 74.8-64.49 134.82-140.79 127.38C96.71 376.89 48 317.11 48 250.3V208c0-8.84-7.16-16-16-16H16c-8.84 0-16 7.16-16 16v40.16c0 89.64 63.97 169.55 152 181.69V464H96c-8.84 0-16 7.16-16 16v16c0 8.84 7.16 16 16 16h160c8.84 0 16-7.16 16-16v-16c0-8.84-7.16-16-16-16h-56v-33.77C285.71 418.47 352 344.9 352 256v-48c0-8.84-7.16-16-16-16z"/></svg>
-                                    </button>
-                                    <button class="record-video-button" onclick="startVideoCapture(${sectionIndex}, ${itemIndex})">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>
-                                    </button>
-                                    
-                                    <div class="color-selector">
-                                        <button class="color-button" onclick="onColorPalette(${sectionIndex}, ${itemIndex})">
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16">
-                                                <path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}"
-                                                    d="M204.3 5C104.9 24.4 24.8 104.3 5.2 203.4c-37 187 131.7 326.4 258.8 306.7 41.2-6.4 61.4-54.6 42.5-91.7-23.1-45.4 9.9-98.4 60.9-98.4h79.7c35.8 0 64.8-29.6 64.9-65.3C511.5 97.1 368.1-26.9 204.3 5zM96 320c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm32-128c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128-64c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128 64c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32z"/>
-                                            </svg>
-                                        </button>
-                                        <div class="color-palette" id="colorPalette_${sectionIndex}_${itemIndex}">
-                                            ${colorSchemes.map((scheme, index) => `
-                                                <div class="color-option" 
-                                                    onclick="changeItemColor(${sectionIndex}, ${itemIndex}, ${index})"
-                                                    style="background-color: ${scheme.background}; color: ${scheme.color}">
-                                                    <!-- ${scheme.name} -->
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    </div>
-
-                                </div>
-
-                                <div class="timestamp" ${item.colorScheme !== undefined ? 
-                                    `style="color: ${colorSchemes[item.colorScheme].color};"` : 
-                                    ''}>${item.timestamp}
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
+                    <div class="items"></div>
                     <div class="resize-handle"></div>
                 `;
-                container.appendChild(sectionElement);
-            });
+                sectionElement.innerHTML = headerHTML;
+                
+                const itemsContainer = sectionElement.querySelector('.items');
+                
+                // Process each item
+                for (const [itemIndex, item] of section.items.entries()) {
+                    const itemElement = document.createElement('div');
+                    itemElement.className = 'item';
+                    itemElement.dataset.section = sectionIndex;
+                    itemElement.dataset.item = itemIndex;
+                    
+                    if (item.colorScheme !== undefined) {
+                        itemElement.style.backgroundColor = colorSchemes[item.colorScheme].background;
+                        itemElement.style.color = colorSchemes[item.colorScheme].color;
+                        itemElement.dataset.colorScheme = item.colorScheme;
+                    }
 
+                    // Load text content from IndexedDB
+                    let textContent = '';
+                    if (item.textId) {
+                        try {
+                            textContent = await loadTextFromIndexedDB(item.textId);
+                        } catch (error) {
+                            console.error('Error loading text content:', error);
+                        }
+                    }
+
+                    itemElement.innerHTML = `
+                        <button class="remove-btn" onclick="removeItem(${sectionIndex}, ${itemIndex})">×</button>
+                        <textarea
+                            name="NAME_${sectionIndex}_${itemIndex}"
+                            class="item-input ${isRTL(textContent) ? 'rtl' : 'ltr'}"
+                            oninput="autoResize(this)"
+                            onchange="updateItemText(${sectionIndex}, ${itemIndex}, this.value)"
+                            ${item.colorScheme !== undefined ? 
+                                `style="background-color: ${colorSchemes[item.colorScheme].background}; color: ${colorSchemes[item.colorScheme].color};"` : 
+                            ''}
+                            placeholder="Text..."
+                        >${textContent}</textarea>
+                        
+                        <div class="item-images">
+                            ${item.images ? item.images.map((imageId, imageIndex) => `
+                                <div class="item-image-container">
+                                    <img 
+                                        data-image-id="${imageId}" 
+                                        alt="Item image" 
+                                        onclick="openImageModal(this.src)">
+                                    <button class="remove-btn" onclick="removeImage(${sectionIndex}, ${itemIndex}, ${imageIndex})">×</button>
+                                </div>
+                            `).join('') : ''}
+                        </div>
+                        
+                        <div class="item-audios">
+                            ${item.audios ? item.audios.map((audioId, audioIndex) => `
+                                <div class="item-audio-container" 
+                                    data-audio-id="${audioId}"
+                                    onclick="openAudioModal('')">
+                                    <span>🎵 Recording ${audioIndex + 1}</span>
+                                    <button class="remove-btn" onclick="removeAudio(${sectionIndex}, ${itemIndex}, ${audioIndex})">×</button>
+                                </div>
+                            `).join('') : ''}
+                        </div>
+
+                        <div class="item-files">
+                            ${item.files ? item.files.map((file, fileIndex) => `
+                                <div class="item-file-container" 
+                                    onclick="openFileModal(${file.id}, '${file.name}')"
+                                    data-section="${sectionIndex}" 
+                                    data-item="${itemIndex}"
+                                    data-file="${fileIndex}">
+                                    <span class="file-icon">📄</span>
+                                    <span>${file.name}</span>
+                                    <button class="remove-btn" onclick="event.stopPropagation(); removeFile(${sectionIndex}, ${itemIndex}, ${fileIndex})">×</button>
+                                </div>
+                            `).join('') : ''}
+                        </div>
+
+                        <div class="item-videos">
+                            ${item.videos ? item.videos.map((videoId, videoIndex) => `
+                                <div class="item-video-container">
+                                    <video 
+                                        class="item-video" 
+                                        data-video-id="${videoId}"
+                                        onclick="event.stopPropagation(); openVideoModal(this.src)"
+                                    ></video>
+                                    <button class="remove-btn" onclick="event.stopPropagation(); removeVideo(${sectionIndex}, ${itemIndex}, ${videoIndex})">×</button>
+                                </div>
+                            `).join('') : ''}
+                        </div>
+                        
+                        <div class="item-buttons">
+                            <button class="attach-file-button" onclick="handleFileAttachment(${sectionIndex}, ${itemIndex})">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M43.246 466.142c-58.43-60.289-57.341-157.511 1.386-217.581L254.392 34c44.316-45.332 116.351-45.336 160.671 0 43.89 44.894 43.943 117.329 0 162.276L232.214 383.128c-29.855 30.537-78.633 30.111-107.982-.998-28.275-29.97-27.368-77.473 1.452-106.953l143.743-146.835c6.182-6.314 16.312-6.422 22.626-.241l22.861 22.379c6.315 6.182 6.422 16.312.241 22.626L171.427 319.927c-4.932 5.045-5.236 13.428-.648 18.292 4.372 4.634 11.245 4.711 15.688.165l182.849-186.851c19.613-20.062 19.613-52.725-.011-72.798-19.189-19.627-49.957-19.637-69.154 0L90.39 293.295c-34.763 35.56-35.299 93.12-1.191 128.313 34.01 35.093 88.985 35.137 123.058.286l172.06-175.999c6.177-6.319 16.307-6.433 22.626-.256l22.877 22.364c6.319 6.177 6.434 16.307.256 22.626l-172.06 175.998c-59.576 60.938-155.943 60.216-214.77-.485z"/></svg>
+                            </button>
+                            <button class="attach-image-button" onclick="handleImageAttachment(${sectionIndex}, ${itemIndex})">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M369.9 97.9L286 14C277 5 264.8-.1 252.1-.1H48C21.5 0 0 21.5 0 48v416c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V131.9c0-12.7-5.1-25-14.1-34zM332.1 128H256V51.9l76.1 76.1zM48 464V48h160v104c0 13.3 10.7 24 24 24h104v288H48zm32-48h224V288l-23.5-23.5c-4.7-4.7-12.3-4.7-17 0L176 352l-39.5-39.5c-4.7-4.7-12.3-4.7-17 0L80 352v64zm48-240c-26.5 0-48 21.5-48 48s21.5 48 48 48 48-21.5 48-48-21.5-48-48-48z"/></svg>
+                            </button>
+                            <button class="record-button" onclick="startAudioRecording(${sectionIndex}, ${itemIndex})">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 352 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M176 352c53.02 0 96-42.98 96-96V96c0-53.02-42.98-96-96-96S80 42.98 80 96v160c0 53.02 42.98 96 96 96zm160-160h-16c-8.84 0-16 7.16-16 16v48c0 74.8-64.49 134.82-140.79 127.38C96.71 376.89 48 317.11 48 250.3V208c0-8.84-7.16-16-16-16H16c-8.84 0-16 7.16-16 16v40.16c0 89.64 63.97 169.55 152 181.69V464H96c-8.84 0-16 7.16-16 16v16c0 8.84 7.16 16 16 16h160c8.84 0 16-7.16 16-16v-16c0-8.84-7.16-16-16-16h-56v-33.77C285.71 418.47 352 344.9 352 256v-48c0-8.84-7.16-16-16-16z"/></svg>
+                            </button>
+                            <button class="record-video-button" onclick="startVideoCapture(${sectionIndex}, ${itemIndex})">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}" d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>
+                            </button>
+                            
+                            <div class="color-selector">
+                                <button class="color-button" onclick="onColorPalette(${sectionIndex}, ${itemIndex})">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16">
+                                        <path style="fill: ${item.colorScheme !== undefined ? colorSchemes[item.colorScheme].color : '#666'}"
+                                            d="M204.3 5C104.9 24.4 24.8 104.3 5.2 203.4c-37 187 131.7 326.4 258.8 306.7 41.2-6.4 61.4-54.6 42.5-91.7-23.1-45.4 9.9-98.4 60.9-98.4h79.7c35.8 0 64.8-29.6 64.9-65.3C511.5 97.1 368.1-26.9 204.3 5zM96 320c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm32-128c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128-64c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128 64c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32z"/>
+                                    </svg>
+                                </button>
+                                <div class="color-palette" id="colorPalette_${sectionIndex}_${itemIndex}">
+                                    ${colorSchemes.map((scheme, index) => `
+                                        <div class="color-option" 
+                                            onclick="changeItemColor(${sectionIndex}, ${itemIndex}, ${index})"
+                                            style="background-color: ${scheme.background}; color: ${scheme.color}">
+                                            <!-- ${scheme.name} -->
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="timestamp" ${item.colorScheme !== undefined ? 
+                            `style="color: ${colorSchemes[item.colorScheme].color};"` : 
+                            ''}>${item.timestamp}
+                        </div>
+                    `;
+                    
+                    itemsContainer.appendChild(itemElement);
+                }
+                
+                container.appendChild(sectionElement);
+            }
+
+            // Handle audio loading
+            document.querySelectorAll('.item-audio-container').forEach(async (container) => {
+                try {
+                    const audioId = container.getAttribute('data-audio-id');
+                    if (audioId) {
+                        const blobUrl = await loadAudioFromIndexedDB(audioId);
+                        container.setAttribute('onclick', `openAudioModal('${blobUrl}')`);
+                    }
+                } catch (err) {
+                    console.error('Error loading audio:', err);
+                }
+            });
+            
             // After rendering, load videos
             document.querySelectorAll('.item-video').forEach(async (video) => {
-                if (!db) return;                
+                if (!db) return;       
 
                 try {
                     const videoId = video.dataset.videoId;
@@ -2182,25 +2388,9 @@
                     console.error('Error loading video:', err);
                 }
             });
-            
-            // After rendering, load images
-            document.querySelectorAll('.item-images img').forEach(async (img) => {
-                try {
-                    const imageUrl = img.src;
-                    if (imageUrl) {
-                        const imageId = imageUrl.split('://')[1];
-                        const blobUrl = await loadImageFromIndexedDB(imageId);
-                        img.src = blobUrl;
-                    }
-                    // if (imageUrl.startsWith('indexeddb://')) {
-                    //     const imageId = imageUrl.split('://')[1];
-                    //     const blobUrl = await loadImageFromIndexedDB(imageId);
-                    //     img.src = blobUrl;
-                    // }
-                } catch (err) {
-                    console.error('Error loading image:', err);
-                }
-            });
+
+            // Load images
+            await loadImages();
             
             // Initialize all previous event listeners
             document.querySelectorAll('.item-input').forEach(textarea => {
@@ -2266,10 +2456,31 @@
             renderSections();
         }
 
-        function updateItemText(sectionIndex, itemIndex, text) {
+        async function updateItemText(sectionIndex, itemIndex, value) {
             const currentProject = projects.find(p => p.id === activeProject);
-            currentProject.sections[sectionIndex].items[itemIndex].text = text;
-            saveProjects();
+            const item = currentProject.sections[sectionIndex].items[itemIndex];
+            
+            try {
+                if (!item.textId) {
+                    // If no textId exists, create new entry
+                    const textId = await saveTextToIndexedDB(value);
+                    item.textId = textId;
+                } else {
+                    // Update existing entry
+                    await updateTextInIndexedDB(item.textId, value);
+                }
+                
+                // Update the text direction
+                const textarea = document.querySelector(`textarea[name="NAME_${sectionIndex}_${itemIndex}"]`);
+                if (textarea) {
+                    textarea.className = `item-input ${isRTL(value) ? 'rtl' : 'ltr'}`;
+                }
+                
+                saveProjects();
+            } catch (error) {
+                console.error('Error updating text:', error);
+                alert('Error saving text content');
+            }
         }
 
         // reverse order
@@ -2283,7 +2494,7 @@
 
             // reverse
             currentProject.sections[sectionIndex].items.unshift({
-                text: '',
+                textId: '',
                 images: [],
                 audios: [],
                 videos: [],
@@ -2293,6 +2504,78 @@
 
             saveProjects();
             renderSections();
+        }
+
+        async function updateTextInIndexedDB(textId, newText) {
+            try {
+                const transaction = db.transaction(["textContent"], "readwrite");
+                const store = transaction.objectStore("textContent");
+                
+                return new Promise((resolve, reject) => {
+                    const request = store.get(parseInt(textId));
+                    
+                    request.onsuccess = () => {
+                        const data = request.result;
+                        if (data) {
+                            data.content = newText;
+                            data.timestamp = new Date().getTime();
+                            
+                            const updateRequest = store.put(data);
+                            updateRequest.onsuccess = () => resolve(true);
+                            updateRequest.onerror = () => reject(updateRequest.error);
+                        } else {
+                            reject(new Error('Text content not found'));
+                        }
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('Error in updateTextInIndexedDB:', error);
+                throw error;
+            }
+        }
+
+        async function loadTextFromIndexedDB(textId) {
+            if (!db) return null;
+            
+            try {
+                const transaction = db.transaction(["textContent"], "readonly");
+                const store = transaction.objectStore("textContent");
+
+                return new Promise((resolve, reject) => {
+                    const request = store.get(parseInt(textId));
+                    request.onsuccess = () => {
+                        if (request.result) {
+                            resolve(request.result.content);
+                        } else {
+                            reject(new Error('Text content not found'));
+                        }
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('Error in loadTextFromIndexedDB:', error);
+                throw error;
+            }
+        }
+
+        async function saveTextToIndexedDB(text) {
+            try {
+                const transaction = db.transaction(["textContent"], "readwrite");
+                const store = transaction.objectStore("textContent");
+                
+                return new Promise((resolve, reject) => {
+                    const request = store.add({
+                        content: text,
+                        timestamp: new Date().getTime()
+                    });
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('Error in saveTextToIndexedDB:', error);
+                throw error;
+            }
         }
 // #######################################################################################################################[End] Item
 
@@ -2476,7 +2759,7 @@
                     }
                     currentProject.sections[sectionIndex].items[itemIndex].images.push(image);
                     saveProjects();
-                    renderSections();
+                    await renderSections();
                 }
             } catch (err) {
                 console.error('Failed to read clipboard:', err);
@@ -2581,6 +2864,11 @@
             for (const img of imageElements) {
                 try {
                     const imageId = img.dataset.imageId;
+                    if (imageId.startsWith("data")) {
+                        console.log("Older version of loading images from LocalStorage, now are using IndexedDB");
+                        continue;
+                    }
+                    
                     const blobUrl = await loadImageFromIndexedDB(imageId);
                     
                     if (!blobUrl) return;
@@ -2749,6 +3037,22 @@
 
 
 // #######################################################################################################################[Start] Helper
+        function onReset() {
+            if (!confirm("Do you want to reset everything?\nAll data are going to be lost.")) return;
+            projects = [
+                {
+                    id: 'default',
+                    name: 'Default Project',
+                    sections: []
+                }
+            ]
+            
+            // localStorage.setItem("projects", JSON.stringify(projects))
+
+            renderProjects();
+            renderSections();
+        }
+
         // Convert a Blob to a base64 string
         function blobToBase64(blob) {
             return new Promise((resolve, reject) => {
@@ -3043,7 +3347,7 @@
 // #######################################################################################################################[Start] Init
         async function initDB() {
             return new Promise((resolve, reject) => {
-                const request = indexedDB.open(dbName, dbVersion + 1);
+                const request = indexedDB.open(dbName, dbVersion);
 
                 request.onerror = (event) => {
                     console.error("IndexedDB error:", event.target.error);
@@ -3061,9 +3365,11 @@
                     if (!db.objectStoreNames.contains("files")) {
                         db.createObjectStore("files", { keyPath: "id", autoIncrement: true });
                     }
-                    // Add audio store
                     if (!db.objectStoreNames.contains("audios")) {
                         db.createObjectStore("audios", { keyPath: "id", autoIncrement: true });
+                    }
+                    if (!db.objectStoreNames.contains("textContent")) {
+                        db.createObjectStore("textContent", { keyPath: "id", autoIncrement: true });
                     }
                 };
 

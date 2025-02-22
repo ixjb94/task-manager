@@ -1149,7 +1149,13 @@
                                         const video = await getFromIndexedDB('videos', parseInt(videoId));
                                         if (video && video.data) {  // Keep .data for videos
                                             const newVideoId = `video_${projectIndex}_${sectionIndex}_${itemIndex}_${videoIndex}`;
-                                            mediaDir.file(`${newVideoId}.webm`, video.data);
+                                            
+                                            let fileExtension = 'webm';
+                                            if (video.name) {
+                                                fileExtension = video.name.split(".").at(-1);
+                                            }
+                                            
+                                            mediaDir.file(`${newVideoId}.${fileExtension}`, video.data);
                                             return newVideoId;
                                         }
                                     } catch (err) {
@@ -1249,7 +1255,12 @@
                             // Handle videos
                             if (item.videos && item.videos.length > 0) {
                                 item.videos = await Promise.all(item.videos.map(async (videoId) => {
-                                    const videoFile = zip.file(`media/${videoId}.webm`);
+                                    const mediaFilesNames = Object.keys(zip.files);
+                                    const findVideo = mediaFilesNames.find((value) => value.includes(videoId));
+                                    const fileExtension = findVideo.split('.').at(-1);
+
+                                    // const videoFile = zip.file(`media/${videoId}.webm`);
+                                    const videoFile = zip.file(`media/${videoId}.${fileExtension}`);
                                     if (videoFile) {
                                         const blob = await videoFile.async("blob");
                                         const newVideoId = await saveToIndexedDB('videos', { data: blob });
@@ -3309,7 +3320,11 @@
                 const store = transaction.objectStore("videos");
                 
                 return new Promise((resolve, reject) => {
-                    const request = store.add({ data: blob, timestamp: new Date().getTime() });
+                    const request = store.add({
+                        data: blob,
+                        timestamp: new Date().getTime(),
+                        name: blob.name
+                    });
                     request.onsuccess = () => resolve(request.result);
                     request.onerror = () => reject(request.error);
                 });

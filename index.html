@@ -1150,7 +1150,7 @@
                                         if (video && video.data) {  // Keep .data for videos
                                             const newVideoId = `video_${projectIndex}_${sectionIndex}_${itemIndex}_${videoIndex}`;
                                             
-                                            let fileExtension = 'webm';
+                                            let fileExtension = 'mp4';
                                             if (video.name) {
                                                 fileExtension = video.name.split(".").at(-1);
                                             }
@@ -3176,7 +3176,9 @@
                             cursor: 'always'
                         },
                         // Remove audio constraints from getDisplayMedia
-                        audio: true
+                        audio: {
+                            sampleRate: 256000 // 44100
+                        }
                     });
 
                     // Add event listener for when user stops sharing screen
@@ -3192,7 +3194,7 @@
                             audio: {
                                 echoCancellation: true,
                                 noiseSuppression: true,
-                                sampleRate: 44100
+                                sampleRate: 256000 // 44100
                             }
                         });
                     } catch (micError) {
@@ -3218,7 +3220,9 @@
                     ]);
 
                     mediaRecorder = new MediaRecorder(combinedStream, {
-                        mimeType: 'video/webm;codecs=vp8,opus'
+                        // mimeType: 'video/webm;codecs=vp8,opus'
+                        mimeType: 'video/mp4',
+                        audioBitsPerSecond: 256000
                     });
 
                     recordedChunks = [];
@@ -3230,7 +3234,8 @@
                     mediaRecorder.onstop = async () => {
                         try {
                             if (recordedChunks.length > 0) {
-                                const blob = new Blob(recordedChunks, { type: 'video/webm;codecs=vp8,opus' });
+                                // const blob = new Blob(recordedChunks, { type: 'video/webm;codecs=vp8,opus' });
+                                const blob = new Blob(recordedChunks, { type: 'video/mp4' });
                                 const videoId = await saveVideoToIndexedDB(blob);
                                 
                                 if (!currentProject.sections[sectionIndex].items[itemIndex].videos) {
@@ -3248,7 +3253,7 @@
                         }
                     };
 
-                    mediaRecorder.start(1000); // Collect data every second
+                    mediaRecorder.start(1000);
                     button.classList.add('recording');
                     button.innerHTML = 'Recording...';
                     activeRecordButton = button;

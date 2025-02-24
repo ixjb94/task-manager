@@ -1020,6 +1020,11 @@
         .color-option:hover {
             transform: scale(1.1);
         }
+
+        /* recording */
+        .preparing {
+            color: black;
+        }
     </style>
     <style id="fonts"></style>
 </head>
@@ -3277,114 +3282,124 @@
             if (!button) return;
 
             const currentProject = projects.find(p => p.id === activeProject);
+            
+            // If already recording, stop the recording
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                return;
+            }
+            
+            // Indicate we're preparing to record
+            button.classList.add('preparing');
+            button.innerHTML = 'Preparing...';
+            
             let screenStream = null;
             let micStream = null;
             let audioContext = null;
             let combinedStream = null;
 
-            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            try {
+                // Create audio context first
+                audioContext = new AudioContext();
+                const destination = audioContext.createMediaStreamDestination();
+                
+                // Try to get microphone access first
                 try {
-                    // Create audio context first
-                    audioContext = new AudioContext();
-                    const destination = audioContext.createMediaStreamDestination();
-
-                    // Get screen capture stream first
-                    screenStream = await navigator.mediaDevices.getDisplayMedia({ 
-                        video: {
-                            displaySurface: 'browser',
-                            logicalSurface: true,
-                            cursor: 'always'
-                        },
-                        // Remove audio constraints from getDisplayMedia
+                    micStream = await navigator.mediaDevices.getUserMedia({
                         audio: {
-                            sampleRate: 256000 // 44100
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            sampleRate: 44100
                         }
                     });
-
-                    // Add event listener for when user stops sharing screen
-                    screenStream.getVideoTracks()[0].addEventListener('ended', () => {
-                        if (mediaRecorder && mediaRecorder.state === 'recording') {
-                            mediaRecorder.stop();
-                        }
-                    });
-
-                    try {
-                        // Get microphone stream - make this optional
-                        micStream = await navigator.mediaDevices.getUserMedia({
-                            audio: {
-                                echoCancellation: true,
-                                noiseSuppression: true,
-                                sampleRate: 256000 // 44100
-                            }
-                        });
-                    } catch (micError) {
-                        console.warn('Microphone access denied, continuing with system audio only:', micError);
-                    }
-
-                    // Mix available audio streams
-                    const screenAudio = screenStream.getAudioTracks()[0];
-                    if (screenAudio) {
-                        const screenAudioSource = audioContext.createMediaStreamSource(new MediaStream([screenAudio]));
-                        screenAudioSource.connect(destination);
-                    }
-
-                    if (micStream) {
-                        const micAudioSource = audioContext.createMediaStreamSource(micStream);
-                        micAudioSource.connect(destination);
-                    }
-
-                    // Combine video with available audio
-                    combinedStream = new MediaStream([
-                        ...screenStream.getVideoTracks(),
-                        ...destination.stream.getAudioTracks()
-                    ]);
-
-                    mediaRecorder = new MediaRecorder(combinedStream, {
-                        // mimeType: 'video/webm;codecs=vp8,opus'
-                        mimeType: 'video/mp4',
-                        audioBitsPerSecond: 256000
-                    });
-
-                    recordedChunks = [];
-
-                    mediaRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) recordedChunks.push(event.data);
-                    };
-
-                    mediaRecorder.onstop = async () => {
-                        try {
-                            if (recordedChunks.length > 0) {
-                                // const blob = new Blob(recordedChunks, { type: 'video/webm;codecs=vp8,opus' });
-                                const blob = new Blob(recordedChunks, { type: 'video/mp4' });
-                                const videoId = await saveVideoToIndexedDB(blob);
-                                
-                                if (!currentProject.sections[sectionIndex].items[itemIndex].videos) {
-                                    currentProject.sections[sectionIndex].items[itemIndex].videos = [];
-                                }
-                                currentProject.sections[sectionIndex].items[itemIndex].videos.push(videoId.toString());
-                                saveProjects();
-                                await renderSections();
-                            }
-                        } catch (error) {
-                            console.error('Error handling recorded video:', error);
-                            alert('Failed to save the recorded video.');
-                        } finally {
-                            cleanup();
-                        }
-                    };
-
-                    mediaRecorder.start(1000);
-                    button.classList.add('recording');
-                    button.innerHTML = 'Recording...';
-                    activeRecordButton = button;
-
-                } catch (err) {
-                    console.error('Failed to start recording:', err);
-                    alert('Please select a screen to record and ensure you have granted necessary permissions.');
-                    cleanup();
+                    
+                    // Connect mic to audio destination
+                    const micAudioSource = audioContext.createMediaStreamSource(micStream);
+                    micAudioSource.connect(destination);
+                } catch (micError) {
+                    console.warn('Microphone access denied, continuing with system audio only:', micError);
                 }
-            } else if (mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
+                
+                // Now get screen capture stream
+                screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: {
+                        displaySurface: 'browser',
+                        logicalSurface: true,
+                        cursor: 'always'
+                    },
+                    audio: {
+                        sampleRate: 44100
+                    },
+                    systemAudio: 'include',
+                    selfBrowserSurface: 'include'
+                });
+
+                // Add event listener for when user stops sharing screen
+                screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                    }
+                });
+
+                // Mix available audio streams
+                const screenAudio = screenStream.getAudioTracks()[0];
+                if (screenAudio) {
+                    const screenAudioSource = audioContext.createMediaStreamSource(new MediaStream([screenAudio]));
+                    screenAudioSource.connect(destination);
+                }
+
+                // Combine video with available audio
+                combinedStream = new MediaStream([
+                    ...screenStream.getVideoTracks(),
+                    ...destination.stream.getAudioTracks()
+                ]);
+
+                // Create and setup media recorder
+                mediaRecorder = new MediaRecorder(combinedStream, {
+                    // mimeType: 'video/webm;codecs=vp8,opus',
+                    mimeType: 'video/mp4',
+                    audioBitsPerSecond: 128000
+                });
+
+                recordedChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) recordedChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    try {
+                        if (recordedChunks.length > 0) {
+                            const blob = new Blob(recordedChunks, {
+                                // type: 'video/webm;codecs=vp8,opus'
+                                type: 'video/mp4'
+                            });
+                            const videoId = await saveVideoToIndexedDB(blob);
+                            
+                            if (!currentProject.sections[sectionIndex].items[itemIndex].videos) {
+                                currentProject.sections[sectionIndex].items[itemIndex].videos = [];
+                            }
+                            currentProject.sections[sectionIndex].items[itemIndex].videos.push(videoId.toString());
+                            saveProjects();
+                            await renderSections();
+                        }
+                    } catch (error) {
+                        console.error('Error handling recorded video:', error);
+                    } finally {
+                        cleanup();
+                    }
+                };
+
+                // Now start the actual recording
+                mediaRecorder.start(1000);
+                button.classList.remove('preparing');
+                button.classList.add('recording');
+                button.innerHTML = 'Recording...';
+                activeRecordButton = button;
+
+            } catch (err) {
+                console.error('Failed to start recording:', err);
+                cleanup();
             }
 
             // Helper function to clean up streams and reset UI
@@ -3402,6 +3417,7 @@
                     audioContext.close();
                 }
 
+                button.classList.remove('preparing');
                 button.classList.remove('recording');
                 button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M336.2 64H47.8C21.4 64 0 85.4 0 111.8v288.4C0 426.6 21.4 448 47.8 448h288.4c26.4 0 47.8-21.4 47.8-47.8V111.8c0-26.4-21.4-47.8-47.8-47.8zm189.4 37.7L416 177.3v157.4l109.6 75.5c21.2 14.6 50.4-.3 50.4-25.8V127.5c0-25.4-29.1-40.4-50.4-25.8z"/></svg>`;
                 activeRecordButton = null;

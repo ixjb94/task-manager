@@ -930,7 +930,7 @@
             right: 0;
             height: 0;
             padding: 0;
-            overflow: hidden;
+            overflow: visible;
             display: flex;
             justify-content: flex-start;
             gap: 5px;
@@ -971,6 +971,44 @@
         .item:hover .item-buttons button:nth-child(3) { transition-delay: 0.2s; }
         .item:hover .item-buttons button:nth-child(4) { transition-delay: 0.25s; }
         .item:hover .item-buttons button:nth-child(5) { transition-delay: 0.3s; }
+
+        /* ## Color palette */
+        .color-selector {
+            position: relative;
+        }
+
+        .color-palette {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            background: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+            padding: 5px;
+            min-width: 200px;
+        }
+
+        .color-palette.show {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            /* justify-content: space-between; */
+        }
+
+        .color-option {
+            width: 25px;
+            height: 25px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            border: 1px solid;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
     </style>
     <style id="fonts"></style>
 </head>

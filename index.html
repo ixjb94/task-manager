@@ -908,6 +908,69 @@
         .attach-video-button:hover {
             opacity: 0.8;
         }
+        /* ###### Items / Animation */
+        .item {
+            position: relative;
+            padding-bottom: 30px;
+            transition: padding-bottom 0.3s ease, transform 0.2s ease;
+        }
+
+        .timestamp {
+            position: absolute;
+            bottom: 10px;
+            font-size: 0.8em;
+            color: #666;
+            z-index: 1;
+        }
+
+        .item-buttons {
+            position: absolute;
+            bottom: 0;
+            left: 5px;
+            right: 0;
+            height: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: flex-start;
+            gap: 5px;
+            transition: all 0.3s ease;
+            background: inherit;
+            z-index: 2;
+        }
+
+        .item:hover {
+            padding-bottom: 65px; 
+        }
+
+        .item:hover .item-buttons {
+            height: 35px;
+            padding: 5px;
+            bottom: 25px;
+        }
+
+        /* Rest of the styles remain the same */
+        .item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .item-buttons button {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+
+        .item:hover .item-buttons button {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .item:hover .item-buttons button:nth-child(1) { transition-delay: 0.05s; }
+        .item:hover .item-buttons button:nth-child(2) { transition-delay: 0.15s; }
+        .item:hover .item-buttons button:nth-child(3) { transition-delay: 0.2s; }
+        .item:hover .item-buttons button:nth-child(4) { transition-delay: 0.25s; }
+        .item:hover .item-buttons button:nth-child(5) { transition-delay: 0.3s; }
     </style>
     <style id="fonts"></style>
 </head>
@@ -2303,55 +2366,63 @@
                             placeholder="Text..."
                         >${textContent}</textarea>
                         
-                        <div class="item-images">
-                            ${item.images ? item.images.map((imageId, imageIndex) => `
-                                <div class="item-image-container">
-                                    <img 
-                                        data-image-id="${imageId}" 
-                                        alt="Item image" 
-                                        onclick="openImageModal(this.src)">
-                                    <button class="remove-btn" onclick="removeImage(${sectionIndex}, ${itemIndex}, ${imageIndex})">×</button>
-                                </div>
-                            `).join('') : ''}
-                        </div>
+                        ${item.images && item.images.length > 0 ? `
+                            <div class="item-images">
+                                ${item.images.map((imageId, imageIndex) => `
+                                    <div class="item-image-container">
+                                        <img 
+                                            data-image-id="${imageId}" 
+                                            alt="Item image" 
+                                            onclick="openImageModal(this.src)">
+                                        <button class="remove-btn" onclick="removeImage(${sectionIndex}, ${itemIndex}, ${imageIndex})">×</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
                         
-                        <div class="item-audios">
-                            ${item.audios ? item.audios.map((audioId, audioIndex) => `
-                                <div class="item-audio-container" 
-                                    data-audio-id="${audioId}"
-                                    onclick="openAudioModal('')">
-                                    <span>🎵 Recording ${audioIndex + 1}</span>
-                                    <button class="remove-btn" onclick="removeAudio(${sectionIndex}, ${itemIndex}, ${audioIndex})">×</button>
-                                </div>
-                            `).join('') : ''}
-                        </div>
+                        ${item.audios && item.audios.length > 0 ? `
+                            <div class="item-audios">
+                                ${item.audios.map((audioId, audioIndex) => `
+                                    <div class="item-audio-container" 
+                                        data-audio-id="${audioId}"
+                                        onclick="openAudioModal('')">
+                                        <span>🎵 Recording ${audioIndex + 1}</span>
+                                        <button class="remove-btn" onclick="removeAudio(${sectionIndex}, ${itemIndex}, ${audioIndex})">×</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
 
-                        <div class="item-files">
-                            ${item.files ? item.files.map((file, fileIndex) => `
-                                <div class="item-file-container" 
-                                    onclick="openFileModal(${file.id}, '${file.name}')"
-                                    data-section="${sectionIndex}" 
-                                    data-item="${itemIndex}"
-                                    data-file="${fileIndex}">
-                                    <span class="file-icon">📄</span>
-                                    <span>${file.name}</span>
-                                    <button class="remove-btn" onclick="event.stopPropagation(); removeFile(${sectionIndex}, ${itemIndex}, ${fileIndex})">×</button>
-                                </div>
-                            `).join('') : ''}
-                        </div>
+                        ${item.files && item.files.length > 0 ? `
+                            <div class="item-files">
+                                ${item.files.map((file, fileIndex) => `
+                                    <div class="item-file-container" 
+                                        onclick="openFileModal(${file.id}, '${file.name}')"
+                                        data-section="${sectionIndex}" 
+                                        data-item="${itemIndex}"
+                                        data-file="${fileIndex}">
+                                        <span class="file-icon">📄</span>
+                                        <span>${file.name}</span>
+                                        <button class="remove-btn" onclick="event.stopPropagation(); removeFile(${sectionIndex}, ${itemIndex}, ${fileIndex})">×</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
 
-                        <div class="item-videos">
-                            ${item.videos ? item.videos.map((videoId, videoIndex) => `
-                                <div class="item-video-container">
-                                    <video 
-                                        class="item-video" 
-                                        data-video-id="${videoId}"
-                                        onclick="event.stopPropagation(); openVideoModal(this.src)"
-                                    ></video>
-                                    <button class="remove-btn" onclick="event.stopPropagation(); removeVideo(${sectionIndex}, ${itemIndex}, ${videoIndex})">×</button>
-                                </div>
-                            `).join('') : ''}
-                        </div>
+                        ${item.videos && item.videos.length > 0 ? `
+                            <div class="item-videos">
+                                ${item.videos.map((videoId, videoIndex) => `
+                                    <div class="item-video-container">
+                                        <video 
+                                            class="item-video" 
+                                            data-video-id="${videoId}"
+                                            onclick="event.stopPropagation(); openVideoModal(this.src)"
+                                        ></video>
+                                        <button class="remove-btn" onclick="event.stopPropagation(); removeVideo(${sectionIndex}, ${itemIndex}, ${videoIndex})">×</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
                         
                         <div class="item-buttons">
                             <button class="attach-file-button" onclick="handleFileAttachment(${sectionIndex}, ${itemIndex})">

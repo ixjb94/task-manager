@@ -1025,6 +1025,70 @@
         .preparing {
             color: black;
         }
+
+        /* ### Image Gallery */
+        .modal-gallery-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        .gallery-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+        }
+
+        .gallery-nav-btn:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        .gallery-nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .prev-btn {
+            left: 10px;
+        }
+
+        .next-btn {
+            right: 10px;
+        }
+
+        .modal-gallery-info {
+            position: absolute;
+            bottom: -29px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+            font-size: 14px;
+        }
+
+        #modalImage {
+            max-height: 90%;
+            max-width: 90%;
+            object-fit: contain;
+        }
     </style>
     <style id="fonts"></style>
 </head>
@@ -1040,7 +1104,14 @@
     <div id="imageModal" class="modal">
         <div class="modal-content">
             <button class="modal-close" onclick="closeImageModal()">×</button>
-            <img id="modalImage" src="" alt="Modal image">
+            <div class="modal-gallery-container">
+                <button id="prevImageBtn" class="gallery-nav-btn prev-btn" onclick="navigateToPrevImage()">❮</button>
+                <img id="modalImage" src="" alt="Modal image" data-current-index="0">
+                <button id="nextImageBtn" class="gallery-nav-btn next-btn" onclick="navigateToNextImage()">❯</button>
+            </div>
+            <div class="modal-gallery-info">
+                <span id="imageCounter">1 / 1</span>
+            </div>
         </div>
     </div>
 
@@ -2885,20 +2956,123 @@
 
 
 // #######################################################################################################################[Start] Image
-        async function openImageModal(imageSrc) {
+        function openImageModal(imageSrc) {
             const modal = document.getElementById('imageModal');
             const modalImage = document.getElementById('modalImage');
+            
+            // Find the clicked image element
+            const clickedImageElement = Array.from(document.querySelectorAll('[data-image-id]')).find(img => img.src === imageSrc);
+            
+            // Find parent item of the clicked image
+            const parentItem = clickedImageElement.closest('.item');
+            if (!parentItem) {
+                // Fallback for an image not in an item structure
+                modalImage.src = imageSrc;
+                modal.classList.add('active');
+                document.addEventListener('keydown', handleEscapeKey);
+                return;
+            }
+            
+            // Get section and item index
+            const sectionIndex = parentItem.dataset.section;
+            const itemIndex = parentItem.dataset.item;
+            
+            // Get all images from this specific item only
+            const itemImages = Array.from(parentItem.querySelectorAll('[data-image-id]'));
+            
+            // Find the index of the current image within this item's images
+            const currentIndex = itemImages.indexOf(clickedImageElement);
+            
+            // Set the current image
             modalImage.src = imageSrc;
+            modalImage.dataset.currentIndex = currentIndex;
+            
+            // Store item identification for navigation
+            modalImage.dataset.sectionIndex = sectionIndex;
+            modalImage.dataset.itemIndex = itemIndex;
+            
+            // Update navigation buttons state
+            updateNavigationButtons(currentIndex, itemImages.length);
+            
+            // Show the modal
             modal.classList.add('active');
-            document.addEventListener('keydown', handleEscapeKey);
+            document.addEventListener('keydown', handleModalKeyboard);
         }
 
         function closeImageModal() {
             const modal = document.getElementById('imageModal');
             modal.classList.remove('active');
+            document.removeEventListener('keydown', handleModalKeyboard);
+        }
+
+        function handleModalKeyboard(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+            } else if (event.key === 'ArrowLeft') {
+                navigateToPrevImage();
+            } else if (event.key === 'ArrowRight') {
+                navigateToNextImage();
+            }
+        }
+
+        function navigateToNextImage() {
+            const modalImage = document.getElementById('modalImage');
+            const currentIndex = parseInt(modalImage.dataset.currentIndex);
+            const sectionIndex = modalImage.dataset.sectionIndex;
+            const itemIndex = modalImage.dataset.itemIndex;
             
-            // Remove escape key listener
-            document.removeEventListener('keydown', handleEscapeKey);
+            // Find the item element
+            const itemElement = document.querySelector(`.item[data-section="${sectionIndex}"][data-item="${itemIndex}"]`);
+            if (!itemElement) return;
+            
+            // Get all images from this specific item only
+            const itemImages = Array.from(itemElement.querySelectorAll('[data-image-id]'));
+            
+            if (currentIndex < itemImages.length - 1) {
+                const nextImage = itemImages[currentIndex + 1];
+                
+                modalImage.src = nextImage.src;
+                modalImage.dataset.currentIndex = currentIndex + 1;
+                
+                updateNavigationButtons(currentIndex + 1, itemImages.length);
+            }
+        }
+
+        function navigateToPrevImage() {
+            const modalImage = document.getElementById('modalImage');
+            const currentIndex = parseInt(modalImage.dataset.currentIndex);
+            const sectionIndex = modalImage.dataset.sectionIndex;
+            const itemIndex = modalImage.dataset.itemIndex;
+            
+            // Find the item element
+            const itemElement = document.querySelector(`.item[data-section="${sectionIndex}"][data-item="${itemIndex}"]`);
+            if (!itemElement) return;
+            
+            // Get all images from this specific item only
+            const itemImages = Array.from(itemElement.querySelectorAll('[data-image-id]'));
+            
+            if (currentIndex > 0) {
+                const prevImage = itemImages[currentIndex - 1];
+                
+                modalImage.src = prevImage.src;
+                modalImage.dataset.currentIndex = currentIndex - 1;
+                
+                updateNavigationButtons(currentIndex - 1, itemImages.length);
+            }
+        }
+
+        function updateNavigationButtons(currentIndex, totalImages) {
+            const prevButton = document.getElementById('prevImageBtn');
+            const nextButton = document.getElementById('nextImageBtn');
+            
+            // Enable/disable previous button
+            prevButton.disabled = currentIndex <= 0;
+            
+            // Enable/disable next button
+            nextButton.disabled = currentIndex >= totalImages - 1;
+            
+            // Update counter display
+            document.getElementById('imageCounter').textContent = `${currentIndex + 1} / ${totalImages}`;
         }
 
         async function addImage(sectionIndex, itemIndex) {

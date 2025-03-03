@@ -1,4 +1,4 @@
-### Task Manager
+### Task Manager (Kanban Board?)
 - Lightweight Vanilla JavaScript
 - Can Attach images as much as you want (Paste from Clipboard)
 - Save to localStorage

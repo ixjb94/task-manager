@@ -2638,8 +2638,8 @@
             });
 
             initializeResizeHandles();
-            initializeSectionDragAndDrop();
-            initializeItemDragAndDrop();
+            // initializeSectionDragAndDrop();
+            // initializeItemDragAndDrop();
         }
 
         async function handlePaste(e) {
@@ -3769,13 +3769,20 @@
             });
         }
 
+        const observer = new MutationObserver(() => {
+            initializeSectionDragAndDrop();
+            initializeItemDragAndDrop();
+        });
+
+        observer.observe(document.getElementById('sectionsContainer'), { childList: true });
+
         const originalRenderSections = renderSections;
         
         renderSections = async function() {
             cleanupBlobUrls();
             originalRenderSections();
-            initializeItemDragAndDrop();
-            initializeSectionDragAndDrop();
+            // initializeItemDragAndDrop();
+            // initializeSectionDragAndDrop();
             updateFont();
             
             // Only proceed with video loading if DB is ready
@@ -3813,8 +3820,8 @@
             }
         };
 
-        loadFontSettings();
-        renderSections();
+        // loadFontSettings();
+        // renderSections();
 // #######################################################################################################################[End] Init
 
 
@@ -3869,6 +3876,7 @@
                 db = await initDB();
                 renderProjects();
                 renderSections();
+                loadFontSettings();
             } catch (error) {
                 console.error('Failed to initialize IndexedDB:', error);
             }

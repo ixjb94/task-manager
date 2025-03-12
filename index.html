@@ -2356,9 +2356,8 @@
 
 
 // #######################################################################################################################[Start] Section
-        function initializeSectionDragAndDrop() {
+        function DEP_initializeSectionDragAndDrop() {
             document.querySelectorAll('.section').forEach(section => {
-                // Create and add drag handle to each section header
                 const dragHandle = document.createElement('div');
                 dragHandle.className = 'section-drag-handle';
                 dragHandle.innerHTML = '⋮⋮';
@@ -2367,6 +2366,20 @@
 
                 // Set up drag events
                 dragHandle.addEventListener('mousedown', startSectionDrag);
+            });
+        }
+
+        function initializeSectionDragAndDrop() {
+            document.querySelectorAll('.section').forEach(section => {
+                if (!section.querySelector('.section-header .section-drag-handle')) {
+                    const dragHandle = document.createElement('div');
+                    dragHandle.className = 'section-drag-handle';
+                    dragHandle.innerHTML = '⋮⋮';
+                    section.querySelector('.section-header').insertBefore(dragHandle, section.querySelector('.section-actions'));
+
+                    // Set up drag events
+                    dragHandle.addEventListener('mousedown', startSectionDrag);
+                }
             });
         }
 
@@ -3769,9 +3782,18 @@
             });
         }
 
-        const observer = new MutationObserver(() => {
-            initializeSectionDragAndDrop();
-            initializeItemDragAndDrop();
+        // const observer = new MutationObserver(() => {
+        //     initializeSectionDragAndDrop();
+        //     initializeItemDragAndDrop();
+        // });
+
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    initializeSectionDragAndDrop();
+                    initializeItemDragAndDrop();
+                }
+            });
         });
 
         observer.observe(document.getElementById('sectionsContainer'), { childList: true });

@@ -3292,7 +3292,7 @@
         function handleFileAttachment(sectionIndex, itemIndex) {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = '.txt,.html,.js,.css,.json,.md,.csv';
+            input.accept = '.txt,.html,.js,.css,.json,.md,.csv,.drawio';
             
             input.onchange = async (e) => {
                 const file = e.target.files[0];
